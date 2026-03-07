@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════
-   VideoWeb – Dark Cinema Theme
+   VideoWeb – Theme Variables
    ════════════════════════════════════════════════════════════════ */
 
 :root {
@@ -11,8 +11,27 @@
   --text-sec:     #aaa;
   --accent:       #e5a00d;
   --accent-hover: #ffc107;
+  --border:       #333;
+  --header-bg:    rgba(14,14,14,.92);
+  --input-bg:     #1a1a1a;
   --radius:       8px;
   --poster-ratio: 3 / 2;
+  --shadow:       0 14px 30px rgba(0,0,0,.55);
+}
+
+[data-theme="light"] {
+  --bg:           #f5f5f7;
+  --surface:      #ffffff;
+  --card:         #ffffff;
+  --card-hover:   #f0f0f0;
+  --text:         #1a1a1a;
+  --text-sec:     #555555;
+  --accent:       #d48b00;
+  --accent-hover: #b37600;
+  --border:       #e0e0e0;
+  --header-bg:    rgba(255,255,255,.92);
+  --input-bg:     #f0f0f0;
+  --shadow:       0 14px 30px rgba(0,0,0,.15);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -31,13 +50,13 @@ html, body {
   position: fixed; top: 0; left: 0; right: 0; z-index: 100;
   display: flex; align-items: center; gap: 16px;
   padding: 0 24px; height: 60px;
-  background: rgba(14,14,14,.92);
+  background: var(--header-bg);
   backdrop-filter: blur(10px);
-  border-bottom: 1px solid #222;
+  border-bottom: 1px solid var(--border);
 }
 .header-left  { flex: 0 0 auto; }
 .header-center{ flex: 1; display: flex; justify-content: center; }
-.header-right { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; }
+.header-right { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
 
 .logo {
   font-size: 22px; font-weight: 700; color: var(--accent);
@@ -47,20 +66,22 @@ html, body {
 #searchInput {
   width: 100%; max-width: 420px;
   padding: 8px 16px; border-radius: 20px;
-  border: 1px solid #333; background: #1a1a1a; color: var(--text);
-  font-size: 14px; outline: none; transition: border .2s;
+  border: 1px solid var(--border); background: var(--input-bg); color: var(--text);
+  font-size: 14px; outline: none; transition: border .2s, background .2s;
 }
 #searchInput:focus { border-color: var(--accent); }
-#searchInput::placeholder { color: #666; }
+#searchInput::placeholder { color: var(--text-sec); }
 
-#btnRescan {
-  background: none; border: 1px solid #444; color: var(--text-sec);
-  padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 16px;
-  transition: color .2s, border-color .2s;
+.icon-btn {
+  background: none; border: 1px solid var(--border); color: var(--text-sec);
+  padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 16px;
+  transition: color .2s, border-color .2s, background-color .2s;
+  display: flex; align-items: center; justify-content: center;
 }
-#btnRescan:hover { color: var(--accent); border-color: var(--accent); }
+.icon-btn:hover { color: var(--accent); border-color: var(--accent); background: rgba(0,0,0,0.05); }
+[data-theme="light"] .icon-btn:hover { background: rgba(0,0,0,0.05); }
 
-#movieCount { font-size: 13px; color: var(--text-sec); white-space: nowrap; }
+#movieCount { font-size: 13px; color: var(--text-sec); white-space: nowrap; margin-left: 8px; }
 
 /* ─── Library Grid ────────────────────────────────────────────── */
 
@@ -81,14 +102,16 @@ html, body {
 .movie-card {
   cursor: pointer; border-radius: var(--radius); overflow: hidden;
   background: var(--card); transition: transform .22s, box-shadow .22s;
+  box-shadow: 0 4px 12px rgba(0,0,0,.1);
+  border: 1px solid var(--border);
 }
 .movie-card:hover {
   transform: translateY(-6px);
-  box-shadow: 0 14px 30px rgba(0,0,0,.55);
+  box-shadow: var(--shadow);
 }
 
 .poster-wrap {
-  position: relative; aspect-ratio: 2 / 3; background: #1a1a1a;
+  position: relative; aspect-ratio: 2 / 3; background: var(--input-bg);
   overflow: hidden;
 }
 .poster-wrap img {
@@ -100,8 +123,8 @@ html, body {
 .no-poster {
   width: 100%; height: 100%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 14px; color: #555; text-align: center; padding: 12px;
-  background: #1c1c1c;
+  font-size: 14px; color: var(--text-sec); text-align: center; padding: 12px;
+  background: var(--input-bg);
 }
 
 .rating-badge {
@@ -128,6 +151,7 @@ html, body {
   width: 92vw; max-width: 960px; max-height: 90vh;
   background: var(--surface); border-radius: 12px;
   overflow-y: auto; overflow-x: hidden;
+  box-shadow: 0 10px 40px rgba(0,0,0,.3);
 }
 .modal-close {
   position: absolute; top: 12px; right: 16px; z-index: 2;
@@ -136,7 +160,7 @@ html, body {
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   transition: background .2s;
 }
-.modal-close:hover { background: rgba(255,255,255,.15); }
+.modal-close:hover { background: rgba(255,255,255,.25); }
 
 .detail-hero {
   height: 320px; background-size: cover; background-position: center 20%;
@@ -157,15 +181,15 @@ html, body {
 }
 
 .detail-info { flex: 1; padding-top: 24px; }
-.detail-info h2 { font-size: 26px; margin-bottom: 4px; }
+.detail-info h2 { font-size: 26px; margin-bottom: 4px; color: var(--text); }
 .detail-info .meta { color: var(--text-sec); font-size: 14px; margin-bottom: 12px; display: flex; gap: 12px; flex-wrap: wrap; }
 .detail-info .meta span { white-space: nowrap; }
 .detail-info .genres { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
 .genre-tag {
-  background: #2a2a2a; color: var(--text-sec); font-size: 12px;
-  padding: 4px 10px; border-radius: 12px;
+  background: var(--input-bg); color: var(--text-sec); font-size: 12px;
+  padding: 4px 10px; border-radius: 12px; border: 1px solid var(--border);
 }
-.detail-info .plot { font-size: 14px; line-height: 1.7; color: #ccc; margin-bottom: 16px; }
+.detail-info .plot { font-size: 14px; line-height: 1.7; color: var(--text); margin-bottom: 16px; }
 .detail-info .tagline { font-style: italic; color: var(--text-sec); font-size: 13px; margin-bottom: 10px; }
 
 .btn-play {
@@ -189,14 +213,14 @@ html, body {
 }
 .cast-card .cast-thumb {
   width: 80px; height: 80px; border-radius: 50%;
-  background: #2a2a2a; margin: 0 auto 8px;
+  background: var(--input-bg); margin: 0 auto 8px;
   overflow: hidden; display: flex; align-items: center; justify-content: center;
-  color: #555; font-size: 28px;
+  color: var(--text-sec); font-size: 28px;
 }
 .cast-card .cast-thumb img {
   width: 100%; height: 100%; object-fit: cover;
 }
-.cast-card .cast-name { font-size: 13px; font-weight: 500; }
+.cast-card .cast-name { font-size: 13px; font-weight: 500; color: var(--text); }
 .cast-card .cast-role { font-size: 11px; color: var(--text-sec); }
 
 /* ─── Video Player ────────────────────────────────────────────── */
@@ -223,7 +247,7 @@ html, body {
 .subtitle-selector { display: flex; gap: 8px; align-items: center; }
 .subtitle-selector label { font-size: 13px; color: #aaa; white-space: nowrap; }
 .subtitle-selector select {
-  background: #222; color: #e8e8e8; border: 1px solid #444;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border);
   padding: 5px 10px; border-radius: 6px; font-size: 13px; outline: none;
 }
 
@@ -241,6 +265,7 @@ html, body {
   backdrop-filter: blur(12px);
 }
 .setup-dialog {
+  position: relative;
   background: var(--surface); border-radius: 16px;
   padding: 40px 36px; width: 92vw; max-width: 460px;
   text-align: center;
@@ -256,13 +281,14 @@ html, body {
 }
 .setup-field input {
   width: 100%; padding: 10px 14px; border-radius: 8px;
-  border: 1px solid #333; background: #1a1a1a; color: var(--text);
+  border: 1px solid var(--border); background: var(--input-bg); color: var(--text);
   font-size: 14px; outline: none; transition: border .2s;
 }
 .setup-field input:focus { border-color: var(--accent); }
 .setup-error {
-  background: #3a1a1a; color: #f77; border-radius: 8px;
+  background: rgba(255, 0, 0, 0.1); color: #e55; border-radius: 8px;
   padding: 10px 14px; font-size: 13px; margin-bottom: 14px; text-align: left;
+  border: 1px solid rgba(255, 0, 0, 0.2);
 }
 .btn-setup {
   width: 100%; padding: 12px; border: none; border-radius: 10px;

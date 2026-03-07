@@ -9,12 +9,13 @@
 <body>
   <div id="app">
 
-    <!-- ─── Setup Dialog (first run) ─────────────────────────── -->
+    <!-- ─── Settings / Setup Dialog ──────────────────────────── -->
     <div id="setupOverlay" class="setup-overlay hidden">
       <div class="setup-dialog">
+        <button id="btnSetupClose" class="modal-close hidden">&times;</button>
         <div class="setup-icon">🎬</div>
-        <h2>欢迎使用 VideoWeb</h2>
-        <p class="setup-desc">首次启动，请配置电影库文件夹路径和服务端口。</p>
+        <h2 id="setupTitle">设置 VideoWeb</h2>
+        <p class="setup-desc" id="setupDesc">配置电影库文件夹路径和服务端口。</p>
         <form id="setupForm" autocomplete="off">
           <div class="setup-field">
             <label for="setupMovieDir">电影文件夹路径</label>
@@ -25,7 +26,7 @@
             <input type="number" id="setupPort" placeholder="48233" min="1024" max="65535">
           </div>
           <div id="setupError" class="setup-error hidden"></div>
-          <button type="submit" class="btn-setup" id="btnSetup">保存并开始</button>
+          <button type="submit" class="btn-setup" id="btnSetup">保存并重启</button>
         </form>
       </div>
     </div>
@@ -39,7 +40,9 @@
         <input type="search" id="searchInput" placeholder="搜索电影…" autocomplete="off">
       </div>
       <div class="header-right">
-        <button id="btnRescan" title="重新扫描">⟳</button>
+        <button class="icon-btn" id="btnTheme" title="切换主题">🌓</button>
+        <button class="icon-btn" id="btnSettings" title="设置">⚙️</button>
+        <button class="icon-btn" id="btnRescan" title="重新扫描">⟳</button>
         <span id="movieCount"></span>
       </div>
     </header>

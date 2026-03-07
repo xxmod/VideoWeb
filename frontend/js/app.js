@@ -245,18 +245,24 @@ function esc(s) {
   return d.innerHTML;
 }
 
-// ── Setup / First-run ────────────────────────────────────────────────────────
+// ── Setup / Settings ─────────────────────────────────────────────────────────
 
 const $setupOverlay = document.getElementById('setupOverlay');
 const $setupForm    = document.getElementById('setupForm');
 const $setupError   = document.getElementById('setupError');
+const $btnSettings  = document.getElementById('btnSettings');
+const $btnSetupClose= document.getElementById('btnSetupClose');
+
+let isInitialSetup = true;
 
 async function checkSetup() {
   try {
     const settings = await api('/settings');
     if (settings.needsSetup) {
+      isInitialSetup = true;
       showSetup(settings);
     } else {
+      isInitialSetup = false;
       $setupOverlay.classList.add('hidden');
       await loadMovies();
       handleRoute();
@@ -266,11 +272,41 @@ async function checkSetup() {
   }
 }
 
+async function openSettings() {
+  isInitialSetup = false;
+  try {
+    const settings = await api('/settings');
+    showSetup(settings);
+  } catch (err) {
+    alert('无法加载设置');
+  }
+}
+
 function showSetup(settings) {
   $setupOverlay.classList.remove('hidden');
-  $library.classList.add('hidden');
+  document.getElementById('setupMovieDir').value = settings.movieDir || '';
+  document.getElementById('setupPort').value = settings.port || 48233;
   document.getElementById('setupPort').placeholder = String(settings.port || 48233);
+  
+  if (isInitialSetup) {
+    $library.classList.add('hidden');
+    $btnSetupClose.classList.add('hidden');
+    document.getElementById('setupTitle').textContent = '欢迎使用 VideoWeb';
+    document.getElementById('setupDesc').textContent = '首次启动，请配置电影库文件夹路径和服务端口。';
+    document.getElementById('btnSetup').textContent = '保存并开始';
+  } else {
+    $btnSetupClose.classList.remove('hidden');
+    document.getElementById('setupTitle').textContent = '设置 VideoWeb';
+    document.getElementById('setupDesc').textContent = '修改配置后，后端可能需要重启或重新扫描。';
+    document.getElementById('btnSetup').textContent = '保存配置';
+  }
 }
+
+$btnSetupClose.addEventListener('click', () => {
+  $setupOverlay.classList.add('hidden');
+});
+
+$btnSettings.addEventListener('click', openSettings);
 
 $setupForm.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -294,14 +330,19 @@ $setupForm.addEventListener('submit', async (e) => {
     if (!res.ok) { showSetupError(data.error || '保存失败'); return; }
 
     $setupOverlay.classList.add('hidden');
-    $library.classList.remove('hidden');
+    
+    if (isInitialSetup) {
+      isInitialSetup = false;
+      $library.classList.remove('hidden');
+    }
+    
     await loadMovies();
     handleRoute();
   } catch (err) {
     showSetupError('请求失败: ' + err.message);
   } finally {
     btn.disabled = false;
-    btn.textContent = '保存并开始';
+    btn.textContent = isInitialSetup ? '保存并开始' : '保存配置';
   }
 });
 
@@ -310,6 +351,37 @@ function showSetupError(msg) {
   $setupError.classList.remove('hidden');
 }
 
+// ── Theme Management ─────────────────────────────────────────────────────────
+
+const $btnTheme = document.getElementById('btnTheme');
+
+function initTheme() {
+  const savedTheme = localStorage.getItem('vw_theme');
+  if (savedTheme === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+    $btnTheme.textContent = '🌞';
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+    $btnTheme.textContent = '🌓';
+  }
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  if (current === 'light') {
+    document.documentElement.removeAttribute('data-theme');
+    localStorage.setItem('vw_theme', 'dark');
+    $btnTheme.textContent = '🌓';
+  } else {
+    document.documentElement.setAttribute('data-theme', 'light');
+    localStorage.setItem('vw_theme', 'light');
+    $btnTheme.textContent = '🌞';
+  }
+}
+
+$btnTheme.addEventListener('click', toggleTheme);
+
 // ── Init ─────────────────────────────────────────────────────────────────────
 
+initTheme();
 checkSetup();
