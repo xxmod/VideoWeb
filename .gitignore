@@ -1,0 +1,17 @@
+node_modules/
+package-lock.json
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Environment
+.env

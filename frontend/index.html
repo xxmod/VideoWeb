@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VideoWeb</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ─── Header ─────────────────────────────────────────────── -->
+    <header id="header">
+      <div class="header-left">
+        <h1 class="logo" onclick="location.hash='#/'">VideoWeb</h1>
+      </div>
+      <div class="header-center">
+        <input type="search" id="searchInput" placeholder="搜索电影…" autocomplete="off">
+      </div>
+      <div class="header-right">
+        <button id="btnRescan" title="重新扫描">⟳</button>
+        <span id="movieCount"></span>
+      </div>
+    </header>
+
+    <!-- ─── Library Grid ───────────────────────────────────────── -->
+    <main id="library">
+      <div id="movieGrid" class="movie-grid"></div>
+      <div id="loading" class="center-msg">加载中…</div>
+      <div id="emptyMsg" class="center-msg hidden">未找到电影</div>
+    </main>
+
+    <!-- ─── Detail Modal ───────────────────────────────────────── -->
+    <div id="detailModal" class="modal hidden">
+      <div class="modal-backdrop" onclick="location.hash='#/'"></div>
+      <div class="modal-content">
+        <button class="modal-close" onclick="location.hash='#/'">&times;</button>
+        <div class="detail-hero" id="detailHero"></div>
+        <div class="detail-body">
+          <div class="detail-poster" id="detailPoster"></div>
+          <div class="detail-info" id="detailInfo"></div>
+        </div>
+        <div class="detail-cast" id="detailCast"></div>
+      </div>
+    </div>
+
+    <!-- ─── Video Player ───────────────────────────────────────── -->
+    <div id="playerView" class="player-view hidden">
+      <div class="player-header">
+        <button class="btn-back" onclick="history.back()">← 返回</button>
+        <span class="player-title" id="playerTitle"></span>
+        <div class="subtitle-selector" id="subtitleSelector"></div>
+      </div>
+      <video id="videoPlayer" controls autoplay>
+        您的浏览器不支持 HTML5 视频播放。
+      </video>
+    </div>
+
+  </div>
+
+  <script src="js/app.js"></script>
+  <script src="js/player.js"></script>
+</body>
+</html>
