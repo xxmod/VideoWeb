@@ -2,7 +2,7 @@
    VideoWeb – Main Application
    ════════════════════════════════════════════════════════════════ */
 
-const API_BASE = window.API_BASE || `${location.protocol}//${location.hostname}:48233/api`;
+const API_BASE = window.API_BASE || `${location.origin}/api`;
 
 // ── State ────────────────────────────────────────────────────────────────────
 
@@ -245,6 +245,71 @@ function esc(s) {
   return d.innerHTML;
 }
 
+// ── Setup / First-run ────────────────────────────────────────────────────────
+
+const $setupOverlay = document.getElementById('setupOverlay');
+const $setupForm    = document.getElementById('setupForm');
+const $setupError   = document.getElementById('setupError');
+
+async function checkSetup() {
+  try {
+    const settings = await api('/settings');
+    if (settings.needsSetup) {
+      showSetup(settings);
+    } else {
+      $setupOverlay.classList.add('hidden');
+      await loadMovies();
+      handleRoute();
+    }
+  } catch (err) {
+    $loading.textContent = '无法连接后端: ' + err.message;
+  }
+}
+
+function showSetup(settings) {
+  $setupOverlay.classList.remove('hidden');
+  $library.classList.add('hidden');
+  document.getElementById('setupPort').placeholder = String(settings.port || 48233);
+}
+
+$setupForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('btnSetup');
+  const movieDir = document.getElementById('setupMovieDir').value.trim();
+  const port = document.getElementById('setupPort').value.trim();
+
+  if (!movieDir) { showSetupError('请输入电影文件夹路径'); return; }
+
+  btn.disabled = true;
+  btn.textContent = '正在扫描…';
+  $setupError.classList.add('hidden');
+
+  try {
+    const res = await fetch(`${API_BASE}/settings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ movieDir, port: parseInt(port) || undefined }),
+    });
+    const data = await res.json();
+    if (!res.ok) { showSetupError(data.error || '保存失败'); return; }
+
+    $setupOverlay.classList.add('hidden');
+    $library.classList.remove('hidden');
+    await loadMovies();
+    handleRoute();
+  } catch (err) {
+    showSetupError('请求失败: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '保存并开始';
+  }
+});
+
+function showSetupError(msg) {
+  $setupError.textContent = msg;
+  $setupError.classList.remove('hidden');
+}
+
 // ── Init ─────────────────────────────────────────────────────────────────────
 
-loadMovies().then(() => handleRoute());
+checkSetup();

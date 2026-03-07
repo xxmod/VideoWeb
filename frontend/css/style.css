@@ -232,6 +232,46 @@ html, body {
   background: #000; outline: none;
 }
 
+/* ─── Setup Dialog ────────────────────────────────────────────── */
+
+.setup-overlay {
+  position: fixed; inset: 0; z-index: 500;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.85);
+  backdrop-filter: blur(12px);
+}
+.setup-dialog {
+  background: var(--surface); border-radius: 16px;
+  padding: 40px 36px; width: 92vw; max-width: 460px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,.6);
+}
+.setup-icon { font-size: 48px; margin-bottom: 12px; }
+.setup-dialog h2 { font-size: 24px; margin-bottom: 8px; }
+.setup-desc { color: var(--text-sec); font-size: 14px; margin-bottom: 24px; }
+.setup-field { text-align: left; margin-bottom: 16px; }
+.setup-field label {
+  display: block; font-size: 13px; color: var(--text-sec);
+  margin-bottom: 6px; font-weight: 500;
+}
+.setup-field input {
+  width: 100%; padding: 10px 14px; border-radius: 8px;
+  border: 1px solid #333; background: #1a1a1a; color: var(--text);
+  font-size: 14px; outline: none; transition: border .2s;
+}
+.setup-field input:focus { border-color: var(--accent); }
+.setup-error {
+  background: #3a1a1a; color: #f77; border-radius: 8px;
+  padding: 10px 14px; font-size: 13px; margin-bottom: 14px; text-align: left;
+}
+.btn-setup {
+  width: 100%; padding: 12px; border: none; border-radius: 10px;
+  background: var(--accent); color: #000; font-size: 16px; font-weight: 600;
+  cursor: pointer; transition: background .2s;
+}
+.btn-setup:hover { background: var(--accent-hover); }
+.btn-setup:disabled { opacity: .5; cursor: not-allowed; }
+
 /* ─── Utility ─────────────────────────────────────────────────── */
 
 .hidden { display: none !important; }
