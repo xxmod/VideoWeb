@@ -7,6 +7,7 @@ const $playerTitle  = document.getElementById('playerTitle');
 const $subSelector  = document.getElementById('subtitleSelector');
 
 let currentMovieId = null;
+let progressTimer = null;
 
 // ── Open player ──────────────────────────────────────────────────────────────
 
@@ -55,8 +56,23 @@ async function openPlayer(id) {
   showView('player');
   $video.focus();
 
+  // Restore saved progress
+  const w = watchData[id];
+  if (w && w.progress > 0 && w.status === 'watching') {
+    $video.addEventListener('loadedmetadata', () => {
+      $video.currentTime = w.progress;
+    }, { once: true });
+  }
+
   // Wait for video metadata to enable default subtitle track
   $video.addEventListener('loadedmetadata', activateDefaultTrack, { once: true });
+
+  // Start periodic progress saving (every 10 seconds)
+  clearInterval(progressTimer);
+  progressTimer = setInterval(() => saveProgress(), 10000);
+
+  // Also save on pause
+  $video.addEventListener('pause', saveProgress);
 }
 
 // ── Activate default subtitle ────────────────────────────────────────────────
@@ -112,11 +128,45 @@ function buildSubtitleSelector(subs) {
 // ── Stop / cleanup ───────────────────────────────────────────────────────────
 
 function stopPlayer() {
+  saveProgress(); // save before stopping
+  clearInterval(progressTimer);
+  progressTimer = null;
+  $video.removeEventListener('pause', saveProgress);
   $video.pause();
   $video.removeAttribute('src');
   while ($video.firstChild) $video.removeChild($video.firstChild);
   $video.load(); // release resources
   currentMovieId = null;
+}
+
+// ── Save watch progress ──────────────────────────────────────────────────────
+
+function saveProgress() {
+  if (!currentMovieId || !authToken) return;
+  const progress = $video.currentTime;
+  const duration = $video.duration;
+  if (!progress || !duration || isNaN(duration)) return;
+
+  // Update local watchData immediately
+  const ratio = duration > 0 ? progress / duration : 0;
+  const status = ratio >= 0.9 ? 'watched' : 'watching';
+  watchData[currentMovieId] = {
+    status,
+    progress: Math.floor(progress),
+    duration: Math.floor(duration),
+    updatedAt: new Date().toISOString(),
+  };
+
+  // Fire and forget
+  fetch(`${API_BASE}/auth/watch-progress`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-token': authToken },
+    body: JSON.stringify({
+      movieId: currentMovieId,
+      progress: Math.floor(progress),
+      duration: Math.floor(duration),
+    }),
+  }).catch(() => {});
 }
 
 // ── Language code helper ─────────────────────────────────────────────────────

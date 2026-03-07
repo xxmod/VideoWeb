@@ -4,8 +4,10 @@ const path = require('path');
 const fs = require('fs');
 const config = require('./config');
 const movieRoutes = require('./routes/movies');
+const authRoutes = require('./routes/auth');
 const { scanMovies, buildSourceSignature } = require('./services/scanner');
 const { loadCache, saveCache } = require('./services/cacheService');
+const { hasAnyUser } = require('./services/userService');
 
 const app = express();
 const DETECT_INTERVAL_MS = 60 * 1000;
@@ -21,6 +23,7 @@ app.get('/api/settings', (req, res) => {
     port: config.port,
     movieDir: config.movieDir,
     needsSetup: config.needsSetup,
+    needsAdmin: !hasAnyUser(),
   });
 });
 
@@ -59,6 +62,7 @@ app.post('/api/settings', async (req, res) => {
 
 // ── Movie API routes ─────────────────────────────────────────────────────────
 
+app.use('/api/auth', authRoutes);
 app.use('/api/movies', movieRoutes);
 
 app.post('/api/rescan', async (req, res) => {

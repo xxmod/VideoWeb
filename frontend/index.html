@@ -9,6 +9,27 @@
 <body>
   <div id="app">
 
+    <!-- ─── Login Dialog ─────────────────────────────────────── -->
+    <div id="loginOverlay" class="setup-overlay hidden">
+      <div class="setup-dialog">
+        <div class="setup-icon">🔐</div>
+        <h2 id="loginTitle">登录 VideoWeb</h2>
+        <p class="setup-desc" id="loginDesc">请输入账户信息</p>
+        <form id="loginForm" autocomplete="off">
+          <div class="setup-field">
+            <label for="loginUser">用户名</label>
+            <input type="text" id="loginUser" placeholder="用户名" required>
+          </div>
+          <div class="setup-field">
+            <label for="loginPass">密码</label>
+            <input type="password" id="loginPass" placeholder="密码（可为空）">
+          </div>
+          <div id="loginError" class="setup-error hidden"></div>
+          <button type="submit" class="btn-setup" id="btnLogin">登录</button>
+        </form>
+      </div>
+    </div>
+
     <!-- ─── Settings / Setup Dialog ──────────────────────────── -->
     <div id="setupOverlay" class="setup-overlay hidden">
       <div class="setup-dialog">
@@ -17,6 +38,14 @@
         <h2 id="setupTitle">设置 VideoWeb</h2>
         <p class="setup-desc" id="setupDesc">配置电影库文件夹路径和服务端口。</p>
         <form id="setupForm" autocomplete="off">
+          <div class="setup-field" id="adminFields" style="display:none">
+            <label for="setupAdminUser">管理员用户名</label>
+            <input type="text" id="setupAdminUser" placeholder="admin">
+            <div style="margin-top:10px">
+              <label for="setupAdminPass">管理员密码</label>
+              <input type="password" id="setupAdminPass" placeholder="密码（可为空）">
+            </div>
+          </div>
           <div class="setup-field">
             <label for="setupMovieDir">电影文件夹路径</label>
             <input type="text" id="setupMovieDir" placeholder="例如 Z:\movie&teleplay\movie" required>
@@ -31,6 +60,44 @@
       </div>
     </div>
 
+    <!-- ─── Change Password Dialog ──────────────────────────── -->
+    <div id="changePwOverlay" class="setup-overlay hidden">
+      <div class="setup-dialog" style="max-width:400px">
+        <button class="modal-close" onclick="document.getElementById('changePwOverlay').classList.add('hidden')">&times;</button>
+        <h2>修改密码</h2>
+        <form id="changePwForm" autocomplete="off" style="margin-top:20px">
+          <div class="setup-field">
+            <label for="cpOldPw">原密码</label>
+            <input type="password" id="cpOldPw" placeholder="原密码">
+          </div>
+          <div class="setup-field">
+            <label for="cpNewPw">新密码</label>
+            <input type="password" id="cpNewPw" placeholder="新密码（可为空）">
+          </div>
+          <div id="changePwError" class="setup-error hidden"></div>
+          <button type="submit" class="btn-setup">确认修改</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ─── Admin Panel Dialog ───────────────────────────────── -->
+    <div id="adminOverlay" class="setup-overlay hidden">
+      <div class="setup-dialog" style="max-width:520px;text-align:left">
+        <button class="modal-close" onclick="document.getElementById('adminOverlay').classList.add('hidden')">&times;</button>
+        <h2 style="text-align:center;margin-bottom:16px">用户管理</h2>
+        <div id="adminUserList"></div>
+        <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
+          <h3 style="font-size:15px;margin-bottom:10px">创建新用户</h3>
+          <form id="adminCreateForm" autocomplete="off" style="display:flex;gap:8px;flex-wrap:wrap">
+            <input type="text" id="acUsername" placeholder="用户名" style="flex:1;min-width:100px;padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);font-size:14px" required>
+            <input type="password" id="acPassword" placeholder="密码（可空）" style="flex:1;min-width:100px;padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);font-size:14px">
+            <button type="submit" class="btn-setup" style="width:auto;padding:8px 18px;font-size:14px">添加</button>
+          </form>
+          <div id="adminError" class="setup-error hidden" style="margin-top:8px"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- ─── Header ─────────────────────────────────────────────── -->
     <header id="header">
       <div class="header-left">
@@ -40,6 +107,15 @@
         <input type="search" id="searchInput" placeholder="搜索电影…" autocomplete="off">
       </div>
       <div class="header-right">
+        <div class="user-menu" id="userMenu">
+          <button class="icon-btn" id="btnUser" title="用户">👤</button>
+          <div class="user-dropdown hidden" id="userDropdown">
+            <div class="user-dropdown-name" id="dropdownUsername"></div>
+            <button onclick="openChangePw()">修改密码</button>
+            <button id="btnAdminPanel" class="hidden" onclick="openAdminPanel()">用户管理</button>
+            <button onclick="doLogout()">退出登录</button>
+          </div>
+        </div>
         <button class="icon-btn" id="btnTheme" title="切换主题">🌓</button>
         <button class="icon-btn" id="btnSettings" title="设置">⚙️</button>
         <button class="icon-btn" id="btnRescan" title="重新扫描">⟳</button>
@@ -49,6 +125,10 @@
 
     <!-- ─── Library Grid ───────────────────────────────────────── -->
     <main id="library">
+      <div id="continueSection" class="continue-section hidden">
+        <h2 class="section-title">继续观看</h2>
+        <div id="continueGrid" class="continue-grid"></div>
+      </div>
       <div id="movieGrid" class="movie-grid"></div>
       <div id="loading" class="center-msg">加载中…</div>
       <div id="emptyMsg" class="center-msg hidden">未找到电影</div>
