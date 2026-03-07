@@ -1,6 +1,7 @@
 node_modules/
 package-lock.json
 settings.json
+movie-cache.json
 
 # OS
 Thumbs.db

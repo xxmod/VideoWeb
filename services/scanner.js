@@ -8,6 +8,8 @@ const VIDEO_EXTENSIONS = new Set([
   '.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.ts',
 ]);
 
+const SUBTITLE_EXTENSIONS = new Set(['.srt', '.ass', '.ssa', '.sub', '.vtt']);
+
 const IMAGE_NAMES = {
   'poster.jpg': 'poster', 'poster.png': 'poster',
   'fanart.jpg': 'fanart', 'fanart.png': 'fanart',
@@ -18,6 +20,47 @@ const IMAGE_NAMES = {
   'keyart.jpg': 'keyart', 'keyart.png': 'keyart',
   'disc.png': 'disc',
 };
+
+function buildSourceSignature(movieDir) {
+  try {
+    const rootStat = fs.statSync(movieDir);
+    const entries = fs.readdirSync(movieDir, { withFileTypes: true })
+      .filter(e => e.isDirectory())
+      .map(e => e.name)
+      .sort((a, b) => a.localeCompare(b, 'zh'));
+
+    const folderMeta = entries.map(name => {
+      try {
+        const folderPath = path.join(movieDir, name);
+        const files = fs.readdirSync(folderPath).sort((a, b) => a.localeCompare(b, 'zh'));
+        const keyFiles = files.filter(f => {
+          const ext = path.extname(f).toLowerCase();
+          return VIDEO_EXTENSIONS.has(ext) || ext === '.nfo' || SUBTITLE_EXTENSIONS.has(ext) || !!IMAGE_NAMES[f.toLowerCase()];
+        });
+
+        const fileMeta = keyFiles.map(file => {
+          try {
+            const stat = fs.statSync(path.join(folderPath, file));
+            return `${file}:${Math.floor(stat.mtimeMs)}:${stat.size}`;
+          } catch {
+            return `${file}:0:0`;
+          }
+        });
+
+        return `${name}|${fileMeta.join(',')}`;
+      } catch {
+        return `${name}:0`;
+      }
+    });
+
+    return crypto
+      .createHash('sha1')
+      .update([Math.floor(rootStat.mtimeMs), ...folderMeta].join('|'))
+      .digest('hex');
+  } catch {
+    return '';
+  }
+}
 
 function generateId(folderName) {
   return crypto.createHash('md5').update(folderName).digest('hex').substring(0, 12);
@@ -133,4 +176,4 @@ async function scanMovieFolder(folderPath, folderName) {
   };
 }
 
-module.exports = { scanMovies };
+module.exports = { scanMovies, buildSourceSignature };
