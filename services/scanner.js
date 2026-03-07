@@ -21,6 +21,34 @@ const IMAGE_NAMES = {
   'disc.png': 'disc',
 };
 
+const IMAGE_TOKEN_TO_TYPE = {
+  poster: 'poster',
+  fanart: 'fanart',
+  banner: 'banner',
+  clearart: 'clearart',
+  clearlogo: 'logo',
+  logo: 'logo',
+  thumb: 'thumb',
+  keyart: 'keyart',
+  disc: 'disc',
+};
+
+function detectImageType(fileName) {
+  const lower = fileName.toLowerCase();
+
+  // Exact conventional names first.
+  if (IMAGE_NAMES[lower]) return IMAGE_NAMES[lower];
+
+  const ext = path.extname(lower);
+  if (!['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) return null;
+
+  const base = path.parse(lower).name;
+  const m = base.match(/(?:^|[-_.\s])(poster|fanart|banner|clearart|clearlogo|logo|thumb|keyart|disc)$/i);
+  if (!m) return null;
+
+  return IMAGE_TOKEN_TO_TYPE[m[1].toLowerCase()] || null;
+}
+
 function buildSourceSignature(movieDir) {
   try {
     const rootStat = fs.statSync(movieDir);
@@ -35,7 +63,7 @@ function buildSourceSignature(movieDir) {
         const files = fs.readdirSync(folderPath).sort((a, b) => a.localeCompare(b, 'zh'));
         const keyFiles = files.filter(f => {
           const ext = path.extname(f).toLowerCase();
-          return VIDEO_EXTENSIONS.has(ext) || ext === '.nfo' || SUBTITLE_EXTENSIONS.has(ext) || !!IMAGE_NAMES[f.toLowerCase()];
+          return VIDEO_EXTENSIONS.has(ext) || ext === '.nfo' || SUBTITLE_EXTENSIONS.has(ext) || !!detectImageType(f);
         });
 
         const fileMeta = keyFiles.map(file => {
@@ -118,7 +146,17 @@ async function scanMovieFolder(folderPath, folderName) {
   }
 
   // --- Find and parse NFO ---
-  const nfoFile = files.find(f => path.extname(f).toLowerCase() === '.nfo');
+  const nfoFiles = files.filter(f => path.extname(f).toLowerCase() === '.nfo');
+  let nfoFile = null;
+  if (nfoFiles.length > 0) {
+    // Priority: movie.nfo -> same basename as selected video -> first nfo
+    nfoFile = nfoFiles.find(f => f.toLowerCase() === 'movie.nfo') || null;
+    if (!nfoFile) {
+      const videoBase = path.parse(videoFile).name.toLowerCase();
+      nfoFile = nfoFiles.find(f => path.parse(f).name.toLowerCase() === videoBase) || null;
+    }
+    if (!nfoFile) nfoFile = nfoFiles[0];
+  }
   let nfo = {};
   if (nfoFile) {
     try {
@@ -131,8 +169,17 @@ async function scanMovieFolder(folderPath, folderName) {
   // --- Images ---
   const images = {};
   for (const file of files) {
-    const key = IMAGE_NAMES[file.toLowerCase()];
-    if (key) images[key] = file;
+    const key = detectImageType(file);
+    if (!key) continue;
+
+    // Prefer exact conventional names over suffixed variants.
+    if (!images[key]) {
+      images[key] = file;
+    } else {
+      const existingIsExact = !!IMAGE_NAMES[images[key].toLowerCase()];
+      const currentIsExact = !!IMAGE_NAMES[file.toLowerCase()];
+      if (!existingIsExact && currentIsExact) images[key] = file;
+    }
   }
 
   // --- Subtitles (skip empty files) ---
