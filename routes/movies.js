@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const mime = require('mime-types');
 const { convertSubtitleToVtt } = require('../services/subtitleService');
+const { getThumbnail } = require('../services/imageCache');
 
 // ── Helper ───────────────────────────────────────────────────────────────────
 
@@ -73,7 +74,7 @@ router.get('/:id', (req, res) => {
 
 // ── GET /api/movies/:id/image/:type ──────────────────────────────────────────
 
-router.get('/:id/image/:type', (req, res) => {
+router.get('/:id/image/:type', async (req, res) => {
   const movie = findMovie(req);
   if (!movie) return res.status(404).json({ error: 'Movie not found' });
 
@@ -83,6 +84,23 @@ router.get('/:id/image/:type', (req, res) => {
   const imgPath = safePath(movie.folderPath, imageFile);
   if (!imgPath || !fs.existsSync(imgPath)) return res.status(404).json({ error: 'File not found' });
 
+  // Serve original when ?original=1
+  if (req.query.original === '1') {
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.type(mime.lookup(imageFile) || 'image/jpeg');
+    return fs.createReadStream(imgPath).pipe(res);
+  }
+
+  // Serve cached thumbnail
+  const thumbPath = await getThumbnail(imgPath, req.params.type);
+  if (thumbPath) {
+    res.set('Cache-Control', 'public, max-age=2592000, immutable');
+    res.type('image/jpeg');
+    return fs.createReadStream(thumbPath).pipe(res);
+  }
+
+  // Fallback to original if thumbnail generation failed
+  res.set('Cache-Control', 'public, max-age=86400');
   res.type(mime.lookup(imageFile) || 'image/jpeg');
   fs.createReadStream(imgPath).pipe(res);
 });

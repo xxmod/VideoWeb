@@ -52,7 +52,10 @@ async function apiPost(path, body) {
   });
 }
 
-function imgUrl(id, type)  { return `${API_BASE}/movies/${id}/image/${type}`; }
+function imgUrl(id, type, original) {
+  const base = `${API_BASE}/movies/${id}/image/${type}`;
+  return original ? `${base}?original=1` : base;
+}
 function streamUrl(id)     { return `${API_BASE}/movies/${id}/stream`; }
 function subtitleUrl(id,f) { return `${API_BASE}/movies/${id}/subtitle/${encodeURIComponent(f)}`; }
 
@@ -395,21 +398,21 @@ async function showDetail(id) {
 
   const m = currentDetail;
 
-  // Hero background
+  // Hero background (use original for full-res backdrop)
   const $hero = document.getElementById('detailHero');
   if (m.images.includes('fanart')) {
-    $hero.style.backgroundImage = `url(${imgUrl(m.id, 'fanart')})`;
+    $hero.style.backgroundImage = `url(${imgUrl(m.id, 'fanart', true)})`;
   } else if (m.images.includes('thumb')) {
-    $hero.style.backgroundImage = `url(${imgUrl(m.id, 'thumb')})`;
+    $hero.style.backgroundImage = `url(${imgUrl(m.id, 'thumb', true)})`;
   } else {
     $hero.style.backgroundImage = 'none';
     $hero.style.background = '#1a1a1a';
   }
 
-  // Poster
+  // Poster (use original for detail view)
   const $poster = document.getElementById('detailPoster');
   if (m.images.includes('poster')) {
-    $poster.innerHTML = `<img src="${imgUrl(m.id, 'poster')}" alt="${esc(m.title)}">`;
+    $poster.innerHTML = `<img src="${imgUrl(m.id, 'poster', true)}" alt="${esc(m.title)}">`;
   } else {
     $poster.innerHTML = `<div class="no-poster" style="width:200px;height:300px">${esc(m.title)}</div>`;
   }
