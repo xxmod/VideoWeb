@@ -224,19 +224,51 @@ async function refreshAdminUserList() {
   try {
     const users = await api('/auth/users');
     const $list = document.getElementById('adminUserList');
-    $list.innerHTML = users.map(u => `
-      <div class="admin-user-row">
-        <span class="admin-user-name">${esc(u.username)}${u.isAdmin ? ' <span class="admin-badge">管理员</span>' : ''}</span>
-        <div class="admin-user-actions">
-          ${u.isAdmin ? '' : `
-            <button class="btn-sm" onclick="adminResetPw('${esc(u.username)}')">重置密码</button>
-            <button class="btn-sm btn-danger" onclick="adminDeleteUser('${esc(u.username)}')">删除</button>
-          `}
-        </div>
-      </div>
-    `).join('');
+    $list.innerHTML = '';
+    for (const u of users) {
+      const row = document.createElement('div');
+      row.className = 'admin-user-row';
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'admin-user-name';
+      nameSpan.textContent = u.username;
+      if (u.isAdmin) {
+        const badge = document.createElement('span');
+        badge.className = 'admin-badge';
+        badge.textContent = '管理员';
+        nameSpan.appendChild(document.createTextNode(' '));
+        nameSpan.appendChild(badge);
+      }
+      row.appendChild(nameSpan);
+
+      if (!u.isAdmin) {
+        const actions = document.createElement('div');
+        actions.className = 'admin-user-actions';
+
+        const btnReset = document.createElement('button');
+        btnReset.className = 'btn-sm';
+        btnReset.textContent = '重置密码';
+        btnReset.addEventListener('click', () => adminResetPw(u.username));
+
+        const btnDel = document.createElement('button');
+        btnDel.className = 'btn-sm btn-danger';
+        btnDel.textContent = '删除';
+        btnDel.addEventListener('click', () => adminDeleteUser(u.username));
+
+        actions.appendChild(btnReset);
+        actions.appendChild(btnDel);
+        row.appendChild(actions);
+      }
+
+      $list.appendChild(row);
+    }
   } catch (err) {
-    document.getElementById('adminUserList').innerHTML = `<p style="color:#e55">${err.message}</p>`;
+    const $list = document.getElementById('adminUserList');
+    $list.innerHTML = '';
+    const p = document.createElement('p');
+    p.style.color = '#e55';
+    p.textContent = err.message;
+    $list.appendChild(p);
   }
 }
 

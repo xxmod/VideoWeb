@@ -24,7 +24,9 @@ function saveCache(signature, movieDir, movies, filename) {
     updatedAt: new Date().toISOString(),
     movies,
   };
-  fs.writeFileSync(file, JSON.stringify(payload), 'utf-8');
+  fs.writeFile(file, JSON.stringify(payload), 'utf-8', (err) => {
+    if (err) console.error('Failed to save cache:', err.message);
+  });
 }
 
 module.exports = { loadCache, saveCache };

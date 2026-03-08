@@ -23,7 +23,8 @@ function verifyPassword(password, stored) {
 
 // ── Token management (random hex, stored in memory) ──────────────────────────
 
-const tokens = new Map(); // token → { username, isAdmin }
+const tokens = new Map(); // token → { username, isAdmin, created }
+const TOKEN_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 function createToken(username, isAdmin) {
   const token = crypto.randomBytes(32).toString('hex');
@@ -32,26 +33,48 @@ function createToken(username, isAdmin) {
 }
 
 function validateToken(token) {
-  return tokens.get(token) || null;
+  const session = tokens.get(token);
+  if (!session) return null;
+  if (Date.now() - session.created > TOKEN_MAX_AGE_MS) {
+    tokens.delete(token);
+    return null;
+  }
+  return session;
 }
 
 function revokeToken(token) {
   tokens.delete(token);
 }
 
-// ── User data persistence ────────────────────────────────────────────────────
+// Periodically purge expired tokens to prevent memory leaks
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, session] of tokens) {
+    if (now - session.created > TOKEN_MAX_AGE_MS) tokens.delete(token);
+  }
+}, 60 * 60 * 1000); // every hour
+
+// ── User data persistence (in-memory cache) ─────────────────────────────────
+
+let _usersCache = null;
 
 function loadUsers() {
+  if (_usersCache) return _usersCache;
   try {
     if (fs.existsSync(USERS_FILE)) {
-      return JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8'));
+      _usersCache = JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8'));
+      return _usersCache;
     }
   } catch { /* corrupt file */ }
-  return {};
+  _usersCache = {};
+  return _usersCache;
 }
 
 function saveUsers(users) {
-  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf-8');
+  _usersCache = users;
+  fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2), 'utf-8', (err) => {
+    if (err) console.error('Failed to save users:', err.message);
+  });
 }
 
 function getUser(username) {

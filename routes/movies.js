@@ -147,14 +147,18 @@ router.get('/:id/stream', (req, res) => {
       'Content-Length': end - start + 1,
       'Content-Type': mimeType,
     });
-    fs.createReadStream(videoPath, { start, end }).pipe(res);
+    const stream = fs.createReadStream(videoPath, { start, end });
+    stream.on('error', () => res.end());
+    stream.pipe(res);
   } else {
     res.writeHead(200, {
       'Content-Length': fileSize,
       'Content-Type': mimeType,
       'Accept-Ranges': 'bytes',
     });
-    fs.createReadStream(videoPath).pipe(res);
+    const stream = fs.createReadStream(videoPath);
+    stream.on('error', () => res.end());
+    stream.pipe(res);
   }
 });
 

@@ -18,6 +18,29 @@ let isScanning = false;
 app.use(cors());
 app.use(express.json());
 
+// ── Auth middleware import ────────────────────────────────────────────────────
+
+const { validateToken } = require('./services/userService');
+
+function authRequired(req, res, next) {
+  // Allow unauthenticated access during initial setup (no users yet)
+  if (!hasAnyUser()) return next();
+  const token = req.headers['x-token'];
+  if (!token) return res.status(401).json({ error: '未登录' });
+  const session = validateToken(token);
+  if (!session) return res.status(401).json({ error: '登录已过期' });
+  req.user = session;
+  next();
+}
+
+function adminRequired(req, res, next) {
+  if (!hasAnyUser()) return next();
+  authRequired(req, res, () => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: '需要管理员权限' });
+    next();
+  });
+}
+
 // ── Settings API (available before movie scan) ───────────────────────────────
 
 app.get('/api/settings', (req, res) => {
@@ -30,7 +53,7 @@ app.get('/api/settings', (req, res) => {
   });
 });
 
-app.post('/api/settings', async (req, res) => {
+app.post('/api/settings', adminRequired, async (req, res) => {
   const { movieDir, teleplayDir, port } = req.body;
   if (!movieDir && !teleplayDir) {
     return res.status(400).json({ error: '请提供至少一个媒体文件夹路径' });
@@ -84,10 +107,10 @@ app.post('/api/settings', async (req, res) => {
 // ── Movie API routes ─────────────────────────────────────────────────────────
 
 app.use('/api/auth', authRoutes);
-app.use('/api/movies', movieRoutes);
-app.use('/api/teleplays', teleplayRoutes);
+app.use('/api/movies', authRequired, movieRoutes);
+app.use('/api/teleplays', authRequired, teleplayRoutes);
 
-app.post('/api/rescan', async (req, res) => {
+app.post('/api/rescan', adminRequired, async (req, res) => {
   try {
     let movieCount = 0, showCount = 0;
 
