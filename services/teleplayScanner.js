@@ -125,8 +125,37 @@ function buildTeleplaySignature(teleplayDir) {
     const meta = entries.map(name => {
       try {
         const showPath = path.join(teleplayDir, name);
-        const stat = fs.statSync(showPath);
-        return `${name}:${Math.floor(stat.mtimeMs)}`;
+        const showStat = fs.statSync(showPath);
+        // Scan season subdirectories for deeper change detection
+        const subDirs = fs.readdirSync(showPath, { withFileTypes: true })
+          .filter(e => e.isDirectory())
+          .map(e => e.name)
+          .sort((a, b) => a.localeCompare(b, 'zh'));
+
+        const subMeta = subDirs.map(sub => {
+          try {
+            const subPath = path.join(showPath, sub);
+            const files = fs.readdirSync(subPath).sort((a, b) => a.localeCompare(b, 'zh'));
+            const keyFiles = files.filter(f => {
+              const ext = path.extname(f).toLowerCase();
+              return VIDEO_EXTENSIONS.has(ext) || ext === '.nfo'
+                || ['.srt', '.ass', '.ssa', '.sub', '.vtt'].includes(ext);
+            });
+            const fileMeta = keyFiles.map(file => {
+              try {
+                const stat = fs.statSync(path.join(subPath, file));
+                return `${file}:${Math.floor(stat.mtimeMs)}:${stat.size}`;
+              } catch {
+                return `${file}:0:0`;
+              }
+            });
+            return `${sub}|${fileMeta.join(',')}`;
+          } catch {
+            return `${sub}:0`;
+          }
+        });
+
+        return `${name}:${Math.floor(showStat.mtimeMs)}|${subMeta.join(';')}`;
       } catch {
         return `${name}:0`;
       }

@@ -217,8 +217,8 @@ function langCodeToISO(code) {
 // ── Episode player ───────────────────────────────────────────────────────────
 
 async function openEpisodePlayer(showId, seasonNum, episodeId) {
-  currentMovieId = null;
   currentEpisodeInfo = { showId, seasonNum, episodeId };
+  currentMovieId = episodeId; // use episode id for watch progress tracking
 
   // Fetch show detail to get episode info
   let show;

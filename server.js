@@ -88,30 +88,35 @@ app.use('/api/movies', movieRoutes);
 app.use('/api/teleplays', teleplayRoutes);
 
 app.post('/api/rescan', async (req, res) => {
-  let movieCount = 0, showCount = 0;
+  try {
+    let movieCount = 0, showCount = 0;
 
-  if (config.movieDir) {
-    console.log('Rescanning movie directory...');
-    const newDb = await scanMovies(config.movieDir);
-    const signature = buildSourceSignature(config.movieDir);
-    app.locals.movieDb = newDb;
-    app.locals.sourceSignature = signature;
-    saveCache(signature, config.movieDir, newDb);
-    movieCount = newDb.length;
+    if (config.movieDir) {
+      console.log('Rescanning movie directory...');
+      const newDb = await scanMovies(config.movieDir);
+      const signature = buildSourceSignature(config.movieDir);
+      app.locals.movieDb = newDb;
+      app.locals.sourceSignature = signature;
+      saveCache(signature, config.movieDir, newDb);
+      movieCount = newDb.length;
+    }
+
+    if (config.teleplayDir) {
+      console.log('Rescanning teleplay directory...');
+      const newTpDb = await scanTeleplays(config.teleplayDir);
+      const tpSig = buildTeleplaySignature(config.teleplayDir);
+      app.locals.teleplayDb = newTpDb;
+      app.locals.teleplaySignature = tpSig;
+      saveCache(tpSig, config.teleplayDir, newTpDb, 'teleplay-cache.json');
+      showCount = newTpDb.length;
+    }
+
+    console.log(`Rescan complete: ${movieCount} movies, ${showCount} shows`);
+    res.json({ movieCount, showCount });
+  } catch (err) {
+    console.error('Rescan failed:', err.message);
+    res.status(500).json({ error: '重新扫描失败: ' + err.message });
   }
-
-  if (config.teleplayDir) {
-    console.log('Rescanning teleplay directory...');
-    const newTpDb = await scanTeleplays(config.teleplayDir);
-    const tpSig = buildTeleplaySignature(config.teleplayDir);
-    app.locals.teleplayDb = newTpDb;
-    app.locals.teleplaySignature = tpSig;
-    saveCache(tpSig, config.teleplayDir, newTpDb, 'teleplay-cache.json');
-    showCount = newTpDb.length;
-  }
-
-  console.log(`Rescan complete: ${movieCount} movies, ${showCount} shows`);
-  res.json({ movieCount, showCount });
 });
 
 // ── Serve frontend ───────────────────────────────────────────────────────────
