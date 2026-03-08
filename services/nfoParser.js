@@ -33,6 +33,7 @@ async function parseNfo(filePath) {
     directors: getArray(data, 'director'),
     actors: parseActors(data.actor),
     uniqueIds: parseUniqueIds(data.uniqueid),
+    art: parseArt(data.art),
   };
 }
 
@@ -74,6 +75,29 @@ function parseUniqueIds(ids) {
   for (const uid of ids) {
     if (uid && uid.$ && uid.$.type) {
       result[uid.$.type] = uid._ || '';
+    }
+  }
+  return result;
+}
+
+function parseArt(artNode) {
+  if (!artNode || typeof artNode !== 'object') return {};
+
+  const result = {};
+  for (const [key, val] of Object.entries(artNode)) {
+    // xml2js may represent repeated tags as array; keep the first non-empty value.
+    if (Array.isArray(val)) {
+      const first = val.find(v => typeof v === 'string' ? v.trim() : !!(v && v._));
+      if (typeof first === 'string') result[key] = first;
+      else if (first && first._) result[key] = String(first._);
+      continue;
+    }
+    if (typeof val === 'string') {
+      result[key] = val;
+      continue;
+    }
+    if (val && typeof val === 'object' && val._) {
+      result[key] = String(val._);
     }
   }
   return result;

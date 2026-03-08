@@ -33,6 +33,18 @@ const IMAGE_TOKEN_TO_TYPE = {
   disc: 'disc',
 };
 
+const NFO_ART_KEY_TO_TYPE = {
+  poster: 'poster',
+  fanart: 'fanart',
+  banner: 'banner',
+  clearart: 'clearart',
+  clearlogo: 'logo',
+  logo: 'logo',
+  thumb: 'thumb',
+  keyart: 'keyart',
+  disc: 'disc',
+};
+
 function detectImageType(fileName) {
   const lower = fileName.toLowerCase();
 
@@ -47,6 +59,22 @@ function detectImageType(fileName) {
   if (!m) return null;
 
   return IMAGE_TOKEN_TO_TYPE[m[1].toLowerCase()] || null;
+}
+
+function findFileByReference(files, reference) {
+  if (!reference || typeof reference !== 'string') return null;
+
+  const normalizedRef = reference.replace(/\\/g, '/').trim();
+  const refBase = path.basename(normalizedRef).toLowerCase();
+  if (!refBase) return null;
+
+  const exact = files.find(f => f.toLowerCase() === refBase);
+  if (exact) return exact;
+
+  const refName = path.parse(refBase).name;
+  if (!refName) return null;
+  const byName = files.find(f => path.parse(f).name.toLowerCase() === refName);
+  return byName || null;
 }
 
 function buildSourceSignature(movieDir) {
@@ -146,15 +174,13 @@ async function scanMovieFolder(folderPath, folderName) {
   }
 
   // --- Find and parse NFO ---
-  const nfoFiles = files.filter(f => path.extname(f).toLowerCase() === '.nfo');
+  const nfoFiles = files
+    .filter(f => path.extname(f).toLowerCase() === '.nfo')
+    .sort((a, b) => a.localeCompare(b, 'zh'));
   let nfoFile = null;
   if (nfoFiles.length > 0) {
-    // Priority: movie.nfo -> same basename as selected video -> first nfo
+    // Priority: movie.nfo -> any other .nfo
     nfoFile = nfoFiles.find(f => f.toLowerCase() === 'movie.nfo') || null;
-    if (!nfoFile) {
-      const videoBase = path.parse(videoFile).name.toLowerCase();
-      nfoFile = nfoFiles.find(f => path.parse(f).name.toLowerCase() === videoBase) || null;
-    }
     if (!nfoFile) nfoFile = nfoFiles[0];
   }
   let nfo = {};
@@ -168,9 +194,24 @@ async function scanMovieFolder(folderPath, folderName) {
 
   // --- Images ---
   const images = {};
+
+  // Prefer explicit art references from NFO first.
+  if (nfo.art && typeof nfo.art === 'object') {
+    for (const [artKey, artPath] of Object.entries(nfo.art)) {
+      const imageType = NFO_ART_KEY_TO_TYPE[artKey.toLowerCase()];
+      if (!imageType || images[imageType]) continue;
+      const matched = findFileByReference(files, artPath);
+      if (matched) images[imageType] = matched;
+    }
+  }
+
+  // Fallback to file-name conventions when NFO art is unavailable.
   for (const file of files) {
     const key = detectImageType(file);
     if (!key) continue;
+
+    // Keep NFO-selected images when available.
+    if (images[key]) continue;
 
     // Prefer exact conventional names over suffixed variants.
     if (!images[key]) {

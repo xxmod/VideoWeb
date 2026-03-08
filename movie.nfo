@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<movie>
+  <plot>昔日冠军车手张驰沦为落魄驾校教练，过着靠脸吃饭勉强度日的生活。不料天上掉馅饼，濒临停产的老头乐车厂厂长主动提出赞助张驰组建车队再闯最后一届巴音布鲁克拉力赛。面对这泼天的富贵，张驰蠢蠢欲动，而厂长背后真实的目的无人知晓……带资进队的车手厉小海，看似单纯善良却为何有着与之身份毫不相符的超强天赋？张驰召集老朋友孙宇强和记星，与天才车手厉小海和总是考不过科目二的菜鸟驾校学员刘显德组成了一个苦中作乐、鸡飞狗跳的草台班子，克服重重困难，笑料百出地奔赴赛场。这一次他将超越无数次出现在梦中的终点线……</plot>
+  <lockdata>false</lockdata>
+  <dateadded>2026-02-26 02:06:07</dateadded>
+  <title>飞驰人生2</title>
+  <originaltitle>飞驰人生2</originaltitle>
+  <director>韩寒</director>
+  <writer>韩寒</writer>
+  <writer>周运海</writer>
+  <credits>韩寒</credits>
+  <credits>周运海</credits>
+  <trailer>plugin://plugin.video.youtube/play/?video_id=Z8zkSjSrf78</trailer>
+  <rating>6.9</rating>
+  <year>2024</year>
+  <imdbid>tt30829309</imdbid>
+  <tmdbid>1228891</tmdbid>
+  <premiered>2024-02-10</premiered>
+  <releasedate>2024-02-10</releasedate>
+  <runtime>121</runtime>
+  <country>中国</country>
+  <genre>Drama</genre>
+  <genre>Comedy</genre>
+  <genre>Adventure</genre>
+  <studio>Shanghai PMF Media</studio>
+  <studio>Tao Piao Piao</studio>
+  <studio>Maoyan Entertainment</studio>
+  <studio>Bona Film Group</studio>
+  <studio>Fun Age Pictures</studio>
+  <studio>Zhejiang Hengdian Film Production</studio>
+  <studio>Shanghai Ruyi Film &amp; TV Production 上海儒意影视制作</studio>
+  <studio>Shanghai Film Group 上海电影（集团）(SFG)</studio>
+  <studio>Weibo Corporation</studio>
+  <studio>China Film Group Corporation</studio>
+  <tmdbsetid>1281825</tmdbsetid>
+  <wikidataid>Q124326642</wikidataid>
+  <art>
+    <poster>Z:\movie&amp;teleplay\movie\飞驰人生2 (2024)\飞驰人生2 (2024) 1080p EAC3 Atmos-poster.jpg</poster>
+    <fanart>Z:\movie&amp;teleplay\movie\飞驰人生2 (2024)\飞驰人生2 (2024) 1080p EAC3 Atmos-fanart.jpg</fanart>
+    <fanart>Z:\movie&amp;teleplay\movie\飞驰人生2 (2024)\飞驰人生2 (2024) 1080p EAC3 Atmos-fanart.jpg</fanart>
+  </art>
+  <actor>
+    <name>沈腾</name>
+    <role>张驰</role>
+    <type>Actor</type>
+    <thumb>C:\ProgramData\Jellyfin\Server\metadata\People\沈\沈腾\folder.jpg</thumb>
+  </actor>
+  <actor>
+    <name>范丞丞</name>
+    <role>厉小海</role>
+    <type>Actor</type>
+    <thumb>C:\ProgramData\Jellyfin\Server\metadata\People\范\范丞丞\folder.jpg</thumb>
+  </actor>
+  <actor>
+    <name>尹正</name>
+    <role>孙宇强</role>
+    <type>Actor</type>
+    <thumb>C:\ProgramData\Jellyfin\Server\metadata\People\尹\尹正\folder.jpg</thumb>
+  </actor>
+  <actor>
+    <name>张本煜</name>
+    <role>记星</role>
+    <type>Actor</type>
+    <thumb>C:\ProgramData\Jellyfin\Server\metadata\People\张\张本煜\folder.jpg</thumb>
+  </actor>
+  <actor>
+    <name>孙艺洲</name>
+    <role>刘显德</role>
+    <type>Actor</type>
+    <thumb>C:\ProgramData\Jellyfin\Server\metadata\People\孙\孙艺洲\folder.jpg</thumb>
+  </actor>
+  <actor>
+    <name>魏翔</name>
+    <role>叶经理</role>
+    <type>Actor</type>
+    <thumb>C:\ProgramData\Jellyfin\Server\metadata\People\魏\魏翔\folder.jpg</thumb>
+  </actor>
+  <actor>
+    <name>贾冰</name>
+    <role>辛厂长</role>
+    <type>Actor</type>
+    <thumb>C:\ProgramData\Jellyfin\Server\metadata\People\贾\贾冰\folder.jpg</thumb>
+  </actor>
+  <actor>
+    <name>郑恺</name>
+    <role>马宗亮</role>
+    <type>Actor</type>
+    <thumb>C:\ProgramData\Jellyfin\Server\metadata\People\郑\郑恺\folder.jpg</thumb>
+  </actor>
+  <actor>
+    <name>冯绍峰</name>
+    <role>邹经理</role>
+    <type>Actor</type>
+    <thumb>C:\ProgramData\Jellyfin\Server\metadata\People\冯\冯绍峰\folder.jpg</thumb>
+  </actor>
+  <actor>
+    <name>黄景瑜</name>
+    <role>林臻东</role>
+    <type>Actor</type>
+    <thumb>C:\ProgramData\Jellyfin\Server\metadata\People\黄\黄景瑜\folder.jpg</thumb>
+  </actor>
+  <actor>
+    <name>刘昊然</name>
+    <role>辛地高级技师</role>
+    <type>Actor</type>
+    <thumb>C:\ProgramData\Jellyfin\Server\metadata\People\刘\刘昊然\folder.jpg</thumb>
+  </actor>
+  <actor>
+    <name>于适</name>
+    <role>独狼车手</role>
+    <type>Actor</type>
+    <thumb>C:\ProgramData\Jellyfin\Server\metadata\People\于\于适\folder.jpg</thumb>
+  </actor>
+  <actor>
+    <name>胡先煦</name>
+    <role>1号车手</role>
+    <type>Actor</type>
+    <thumb>C:\ProgramData\Jellyfin\Server\metadata\People\胡\胡先煦\folder.jpg</thumb>
+  </actor>
+  <actor>
+    <name>阎鹤祥</name>
+    <role>[Navigator No. 1]</role>
+    <type>Actor</type>
+    <thumb>C:\ProgramData\Jellyfin\Server\metadata\People\阎\阎鹤祥\folder.jpg</thumb>
+  </actor>
+  <actor>
+    <name>周野芒</name>
+    <role>技术中心官员</role>
+    <type>Actor</type>
+    <thumb>C:\ProgramData\Jellyfin\Server\metadata\People\周\周野芒\folder.jpg</thumb>
+  </actor>
+  <actor>
+    <name>高华阳</name>
+    <role>2号车手</role>
+    <type>Actor</type>
+    <thumb>C:\ProgramData\Jellyfin\Server\metadata\People\高\高华阳\folder.jpg</thumb>
+  </actor>
+  <actor>
+    <name>孙强</name>
+    <role>2号领航员</role>
+    <type>Actor</type>
+    <thumb>C:\ProgramData\Jellyfin\Server\metadata\People\孙\孙强\folder.jpg</thumb>
+  </actor>
+  <actor>
+    <name>范高翔</name>
+    <role>5号车手</role>
+    <type>Actor</type>
+    <thumb>C:\ProgramData\Jellyfin\Server\metadata\People\范\范高翔\folder.jpg</thumb>
+  </actor>
+  <actor>
+    <name>郝瀚</name>
+    <role>5号领航员</role>
+    <type>Actor</type>
+    <thumb>C:\ProgramData\Jellyfin\Server\metadata\People\郝\郝瀚\folder.jpg</thumb>
+  </actor>
+  <actor>
+    <name>谭鑫磊</name>
+    <role>光刻工作人员</role>
+    <type>Actor</type>
+    <thumb>C:\ProgramData\Jellyfin\Server\metadata\People\谭\谭鑫磊\folder.jpg</thumb>
+  </actor>
+  <id>tt30829309</id>
+  <set>
+    <name>飞驰人生（系列）</name>
+  </set>
+  <fileinfo>
+    <streamdetails>
+      <video>
+        <codec>hevc</codec>
+        <micodec>hevc</micodec>
+        <bitrate>2232121</bitrate>
+        <width>1920</width>
+        <height>808</height>
+        <aspect>2.40:1</aspect>
+        <aspectratio>2.40:1</aspectratio>
+        <framerate>24</framerate>
+        <scantype>progressive</scantype>
+        <default>True</default>
+        <forced>False</forced>
+        <duration>121</duration>
+        <durationinseconds>7263</durationinseconds>
+      </video>
+      <audio>
+        <codec>eac3</codec>
+        <micodec>eac3</micodec>
+        <bitrate>768000</bitrate>
+        <language>chi</language>
+        <scantype>progressive</scantype>
+        <channels>6</channels>
+        <samplingrate>48000</samplingrate>
+        <default>True</default>
+        <forced>False</forced>
+      </audio>
+    </streamdetails>
+  </fileinfo>
+</movie>
