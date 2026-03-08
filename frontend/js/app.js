@@ -79,6 +79,10 @@ function tpSubtitleUrl(id, snum, eid, f) {
 }
 function streamUrl(id)     { return `${API_BASE}/movies/${id}/stream`; }
 function subtitleUrl(id,f) { return `${API_BASE}/movies/${id}/subtitle/${encodeURIComponent(f)}`; }
+function embeddedSubUrl(id, idx) { return `${API_BASE}/movies/${id}/embedded-subtitle/${idx}`; }
+function tpEmbeddedSubUrl(id, snum, eid, idx) {
+  return `${API_BASE}/teleplays/${id}/season/${snum}/episode/${eid}/embedded-subtitle/${idx}`;
+}
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -522,7 +526,11 @@ async function showDetail(id) {
     : '';
 
   const subInfo = m.subtitles.length
-    ? `<div class="detail-subtitles">字幕: <span>${m.subtitles.map(s => s.label).join('、')}</span></div>`
+    ? `<div class="detail-subtitles">外挂字幕: <span>${m.subtitles.map(s => s.label).join('、')}</span></div>`
+    : '';
+
+  const embSubInfo = (m.embeddedSubtitles || []).length
+    ? `<div class="detail-subtitles">内嵌字幕: <span>${m.embeddedSubtitles.map(s => s.label).join('、')}</span></div>`
     : '';
 
   const sizeGB = (m.videoSize / (1024 ** 3)).toFixed(2);
@@ -549,7 +557,8 @@ async function showDetail(id) {
       ${watchHTML}
       <span style="font-size:12px;color:#666">${sizeGB} GB</span>
     </div>
-    ${subInfo}`;
+    ${subInfo}
+    ${embSubInfo}`;
 
   // Cast
   const $cast = document.getElementById('detailCast');
@@ -658,7 +667,7 @@ async function showShowDetail(id) {
           <div class="ep-thumb">${thumbHTML}</div>
           <div class="ep-info">
             <div class="ep-title">E${String(ep.episode).padStart(2,'0')} · ${esc(ep.title)}</div>
-            <div class="ep-meta">${ep.runtime ? ep.runtime + ' 分钟' : ''} ${sizeGB} GB ${ep.subtitleCount > 0 ? '· 字幕' : ''}</div>
+            <div class="ep-meta">${ep.runtime ? ep.runtime + ' 分钟' : ''} ${sizeGB} GB ${ep.subtitleCount > 0 ? '· 外挂字幕' : ''} ${(ep.embeddedSubtitleCount || 0) > 0 ? '· 内嵌字幕' : ''}</div>
             ${ep.plot ? `<div class="ep-plot">${esc(ep.plot)}</div>` : ''}
           </div>
         </div>`;

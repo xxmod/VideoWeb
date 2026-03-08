@@ -3,6 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { parseNfo } = require('./nfoParser');
 const { detectSubtitles } = require('./subtitleService');
+const { probeSubtitles, checkFfmpeg } = require('./embeddedSubtitles');
 
 const VIDEO_EXTENSIONS = new Set([
   '.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.ts',
@@ -237,6 +238,15 @@ async function scanMovieFolder(folderPath, folderName) {
 
   const videoStat = fs.statSync(path.join(folderPath, videoFile));
 
+  // --- Embedded subtitles (from video container) ---
+  let embeddedSubtitles = [];
+  const hasFfmpeg = await checkFfmpeg();
+  if (hasFfmpeg) {
+    try {
+      embeddedSubtitles = await probeSubtitles(path.join(folderPath, videoFile));
+    } catch { /* ignore probe errors */ }
+  }
+
   return {
     id: generateId(folderName),
     folderName,
@@ -261,6 +271,7 @@ async function scanMovieFolder(folderPath, folderName) {
     videoSize: videoStat.size,
     images,
     subtitles,
+    embeddedSubtitles,
   };
 }
 

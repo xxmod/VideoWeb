@@ -5,6 +5,7 @@ const path = require('path');
 const mime = require('mime-types');
 const { convertSubtitleToVtt } = require('../services/subtitleService');
 const { getThumbnail } = require('../services/imageCache');
+const { extractSubtitle } = require('../services/embeddedSubtitles');
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -83,6 +84,24 @@ router.get('/:id', (req, res) => {
         videoSize: e.videoSize,
         hasThumb: !!e.thumb,
         subtitleCount: e.subtitles.length,
+        embeddedSubtitleCount: (e.embeddedSubtitles || []).length,
+        subtitles: e.subtitles.map(sub => ({
+          file: sub.file,
+          langCode: sub.langCode,
+          langName: sub.langName,
+          format: sub.format,
+          label: sub.label,
+        })),
+        embeddedSubtitles: (e.embeddedSubtitles || []).map(sub => ({
+          index: sub.index,
+          codec: sub.codec,
+          language: sub.language,
+          langName: sub.langName,
+          title: sub.title,
+          label: sub.label,
+          isDefault: sub.isDefault,
+          isText: sub.isText,
+        })),
       })),
     })),
   });
@@ -254,6 +273,36 @@ router.get('/:id/season/:snum/episode/:eid/subtitle/:file', (req, res) => {
   } catch (err) {
     console.error(`Subtitle conversion error: ${err.message}`);
     res.status(500).json({ error: 'Subtitle conversion failed' });
+  }
+});
+
+// ── GET /api/teleplays/:id/season/:snum/episode/:eid/embedded-subtitle/:index ─
+
+router.get('/:id/season/:snum/episode/:eid/embedded-subtitle/:index', async (req, res) => {
+  const show = findShow(req);
+  if (!show) return res.status(404).json({ error: 'Show not found' });
+
+  const snum = parseInt(req.params.snum);
+  const result = findEpisode(show, snum, req.params.eid);
+  if (!result || !result.episode) return res.status(404).json({ error: 'Episode not found' });
+
+  const { season, episode } = result;
+  const idx = parseInt(req.params.index, 10);
+  const sub = (episode.embeddedSubtitles || []).find(s => s.index === idx);
+  if (!sub) return res.status(404).json({ error: 'Embedded subtitle not found' });
+  if (!sub.isText) return res.status(400).json({ error: '图形字幕无法提取为文本' });
+
+  const videoPath = safePath(season.folderPath, episode.videoFile);
+  if (!videoPath || !fs.existsSync(videoPath)) {
+    return res.status(404).json({ error: 'Video file not found' });
+  }
+
+  try {
+    const vtt = await extractSubtitle(videoPath, idx);
+    res.type('text/vtt; charset=utf-8').send(vtt);
+  } catch (err) {
+    console.error(`Embedded subtitle extraction error: ${err.message}`);
+    res.status(500).json({ error: '内嵌字幕提取失败' });
   }
 });
 

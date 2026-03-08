@@ -36,15 +36,36 @@ async function openPlayer(id) {
   // Set video source
   $video.src = streamUrl(id);
 
-  // Add subtitle tracks
+  // Combine external + embedded subtitles into unified list
+  const allSubs = [];
   const subs = movie.subtitles || [];
-  subs.forEach((sub, i) => {
+  subs.forEach((sub) => {
+    allSubs.push({
+      label: sub.label,
+      langCode: sub.langCode,
+      src: subtitleUrl(id, sub.file),
+      type: 'external',
+    });
+  });
+  const embSubs = movie.embeddedSubtitles || [];
+  embSubs.forEach((sub) => {
+    if (!sub.isText) return; // skip bitmap subs
+    allSubs.push({
+      label: '🔗 ' + sub.label,
+      langCode: sub.language,
+      src: embeddedSubUrl(id, sub.index),
+      type: 'embedded',
+      isDefault: sub.isDefault,
+    });
+  });
+
+  // Add subtitle tracks
+  allSubs.forEach((sub) => {
     const track = document.createElement('track');
     track.kind = 'subtitles';
     track.label = sub.label;
     track.srclang = langCodeToISO(sub.langCode);
-    track.src = subtitleUrl(id, sub.file);
-    // Default: prefer Chinese subtitles
+    track.src = sub.src;
     if (sub.langCode === 'zho' || sub.langCode === 'chi' || sub.langCode === 'cmn') {
       track.default = true;
     }
@@ -52,7 +73,7 @@ async function openPlayer(id) {
   });
 
   // Build subtitle selector UI
-  buildSubtitleSelector(subs);
+  buildSubtitleSelector(allSubs);
 
   showView('player');
   $video.focus();
@@ -223,21 +244,43 @@ async function openEpisodePlayer(showId, seasonNum, episodeId) {
   // Set video source
   $video.src = tpStreamUrl(showId, seasonNum, episodeId);
 
-  // Add subtitle tracks
+  // Combine external + embedded subtitles into unified list
+  const allSubs = [];
   const subs = episode.subtitles || [];
   subs.forEach((sub) => {
+    allSubs.push({
+      label: sub.label,
+      langCode: sub.langCode,
+      src: tpSubtitleUrl(showId, seasonNum, episodeId, sub.file),
+      type: 'external',
+    });
+  });
+  const embSubs = episode.embeddedSubtitles || [];
+  embSubs.forEach((sub) => {
+    if (!sub.isText) return; // skip bitmap subs
+    allSubs.push({
+      label: '🔗 ' + sub.label,
+      langCode: sub.language,
+      src: tpEmbeddedSubUrl(showId, seasonNum, episodeId, sub.index),
+      type: 'embedded',
+      isDefault: sub.isDefault,
+    });
+  });
+
+  // Add subtitle tracks
+  allSubs.forEach((sub) => {
     const track = document.createElement('track');
     track.kind = 'subtitles';
     track.label = sub.label;
     track.srclang = langCodeToISO(sub.langCode);
-    track.src = tpSubtitleUrl(showId, seasonNum, episodeId, sub.file);
+    track.src = sub.src;
     if (sub.langCode === 'zho' || sub.langCode === 'chi' || sub.langCode === 'cmn') {
       track.default = true;
     }
     $video.appendChild(track);
   });
 
-  buildSubtitleSelector(subs);
+  buildSubtitleSelector(allSubs);
   showView('player');
   $video.focus();
 

@@ -5,6 +5,7 @@ const path = require('path');
 const mime = require('mime-types');
 const { convertSubtitleToVtt } = require('../services/subtitleService');
 const { getThumbnail } = require('../services/imageCache');
+const { extractSubtitle } = require('../services/embeddedSubtitles');
 
 // ── Helper ───────────────────────────────────────────────────────────────────
 
@@ -68,6 +69,16 @@ router.get('/:id', (req, res) => {
       langName: s.langName,
       format: s.format,
       label: s.label,
+    })),
+    embeddedSubtitles: (movie.embeddedSubtitles || []).map(s => ({
+      index: s.index,
+      codec: s.codec,
+      language: s.language,
+      langName: s.langName,
+      title: s.title,
+      label: s.label,
+      isDefault: s.isDefault,
+      isText: s.isText,
     })),
   });
 });
@@ -167,6 +178,31 @@ router.get('/:id/subtitle/:file', (req, res) => {
   } catch (err) {
     console.error(`Subtitle conversion error: ${err.message}`);
     res.status(500).json({ error: 'Subtitle conversion failed' });
+  }
+});
+
+// ── GET /api/movies/:id/embedded-subtitle/:index ─────────────────────────────
+
+router.get('/:id/embedded-subtitle/:index', async (req, res) => {
+  const movie = findMovie(req);
+  if (!movie) return res.status(404).json({ error: 'Movie not found' });
+
+  const idx = parseInt(req.params.index, 10);
+  const sub = (movie.embeddedSubtitles || []).find(s => s.index === idx);
+  if (!sub) return res.status(404).json({ error: 'Embedded subtitle not found' });
+  if (!sub.isText) return res.status(400).json({ error: '图形字幕无法提取为文本' });
+
+  const videoPath = safePath(movie.folderPath, movie.videoFile);
+  if (!videoPath || !fs.existsSync(videoPath)) {
+    return res.status(404).json({ error: 'Video file not found' });
+  }
+
+  try {
+    const vtt = await extractSubtitle(videoPath, idx);
+    res.type('text/vtt; charset=utf-8').send(vtt);
+  } catch (err) {
+    console.error(`Embedded subtitle extraction error: ${err.message}`);
+    res.status(500).json({ error: '内嵌字幕提取失败' });
   }
 });
 

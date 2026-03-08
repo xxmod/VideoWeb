@@ -3,6 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { parseNfo } = require('./nfoParser');
 const { detectSubtitles } = require('./subtitleService');
+const { probeSubtitles, checkFfmpeg } = require('./embeddedSubtitles');
 
 const VIDEO_EXTENSIONS = new Set([
   '.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.ts',
@@ -305,6 +306,15 @@ async function scanEpisode(seasonPath, allFiles, videoFile, defaultSeason) {
 
   const videoStat = fs.statSync(path.join(seasonPath, videoFile));
 
+  // Embedded subtitles (from video container)
+  let embeddedSubtitles = [];
+  const hasFfmpeg = await checkFfmpeg();
+  if (hasFfmpeg) {
+    try {
+      embeddedSubtitles = await probeSubtitles(path.join(seasonPath, videoFile));
+    } catch { /* ignore probe errors */ }
+  }
+
   return {
     id: generateId(`${seasonPath}/${videoFile}`),
     title: nfo.title || baseName,
@@ -318,6 +328,7 @@ async function scanEpisode(seasonPath, allFiles, videoFile, defaultSeason) {
     videoSize: videoStat.size,
     thumb: thumbFile || null,
     subtitles,
+    embeddedSubtitles,
   };
 }
 
