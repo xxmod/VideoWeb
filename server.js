@@ -4,8 +4,10 @@ const path = require('path');
 const fs = require('fs');
 const config = require('./config');
 const movieRoutes = require('./routes/movies');
+const teleplayRoutes = require('./routes/teleplays');
 const authRoutes = require('./routes/auth');
 const { scanMovies, buildSourceSignature } = require('./services/scanner');
+const { scanTeleplays, buildTeleplaySignature } = require('./services/teleplayScanner');
 const { loadCache, saveCache } = require('./services/cacheService');
 const { hasAnyUser } = require('./services/userService');
 
@@ -22,39 +24,58 @@ app.get('/api/settings', (req, res) => {
   res.json({
     port: config.port,
     movieDir: config.movieDir,
+    teleplayDir: config.teleplayDir,
     needsSetup: config.needsSetup,
     needsAdmin: !hasAnyUser(),
   });
 });
 
 app.post('/api/settings', async (req, res) => {
-  const { movieDir, port } = req.body;
-  if (!movieDir || typeof movieDir !== 'string') {
-    return res.status(400).json({ error: '请提供电影文件夹路径' });
+  const { movieDir, teleplayDir, port } = req.body;
+  if (!movieDir && !teleplayDir) {
+    return res.status(400).json({ error: '请提供至少一个媒体文件夹路径' });
   }
 
-  // Validate path exists
-  if (!fs.existsSync(movieDir)) {
-    return res.status(400).json({ error: '文件夹路径不存在' });
+  if (movieDir && !fs.existsSync(movieDir)) {
+    return res.status(400).json({ error: '电影文件夹路径不存在' });
+  }
+  if (teleplayDir && !fs.existsSync(teleplayDir)) {
+    return res.status(400).json({ error: '电视剧文件夹路径不存在' });
   }
 
   const newCfg = config.save({
-    movieDir: movieDir.trim(),
+    movieDir: (movieDir || '').trim(),
+    teleplayDir: (teleplayDir || '').trim(),
     port: parseInt(port) || config.port,
   });
 
   config.movieDir = newCfg.movieDir;
+  config.teleplayDir = newCfg.teleplayDir;
   config.port = newCfg.port;
 
-  // Scan with new directory
   try {
-    const movieDb = await scanMovies(config.movieDir);
-    const signature = buildSourceSignature(config.movieDir);
-    app.locals.movieDb = movieDb;
-    app.locals.sourceSignature = signature;
-    saveCache(signature, config.movieDir, movieDb);
-    console.log(`Settings saved. Scanned ${movieDb.length} movies from: ${config.movieDir}`);
-    res.json({ count: movieDb.length, movieDir: config.movieDir, port: config.port });
+    let movieCount = 0, showCount = 0;
+
+    if (config.movieDir) {
+      const movieDb = await scanMovies(config.movieDir);
+      const signature = buildSourceSignature(config.movieDir);
+      app.locals.movieDb = movieDb;
+      app.locals.sourceSignature = signature;
+      saveCache(signature, config.movieDir, movieDb);
+      movieCount = movieDb.length;
+    }
+
+    if (config.teleplayDir) {
+      const teleplayDb = await scanTeleplays(config.teleplayDir);
+      const tpSig = buildTeleplaySignature(config.teleplayDir);
+      app.locals.teleplayDb = teleplayDb;
+      app.locals.teleplaySignature = tpSig;
+      saveCache(tpSig, config.teleplayDir, teleplayDb, 'teleplay-cache.json');
+      showCount = teleplayDb.length;
+    }
+
+    console.log(`Settings saved. Movies: ${movieCount}, Shows: ${showCount}`);
+    res.json({ movieCount, showCount, movieDir: config.movieDir, teleplayDir: config.teleplayDir, port: config.port });
   } catch (err) {
     res.status(500).json({ error: '扫描失败: ' + err.message });
   }
@@ -64,17 +85,33 @@ app.post('/api/settings', async (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/movies', movieRoutes);
+app.use('/api/teleplays', teleplayRoutes);
 
 app.post('/api/rescan', async (req, res) => {
-  if (!config.movieDir) return res.status(400).json({ error: '未配置电影目录' });
-  console.log('Rescanning movie directory...');
-  const newDb = await scanMovies(config.movieDir);
-  const signature = buildSourceSignature(config.movieDir);
-  app.locals.movieDb = newDb;
-  app.locals.sourceSignature = signature;
-  saveCache(signature, config.movieDir, newDb);
-  console.log(`Rescan complete: ${newDb.length} movies`);
-  res.json({ count: newDb.length });
+  let movieCount = 0, showCount = 0;
+
+  if (config.movieDir) {
+    console.log('Rescanning movie directory...');
+    const newDb = await scanMovies(config.movieDir);
+    const signature = buildSourceSignature(config.movieDir);
+    app.locals.movieDb = newDb;
+    app.locals.sourceSignature = signature;
+    saveCache(signature, config.movieDir, newDb);
+    movieCount = newDb.length;
+  }
+
+  if (config.teleplayDir) {
+    console.log('Rescanning teleplay directory...');
+    const newTpDb = await scanTeleplays(config.teleplayDir);
+    const tpSig = buildTeleplaySignature(config.teleplayDir);
+    app.locals.teleplayDb = newTpDb;
+    app.locals.teleplaySignature = tpSig;
+    saveCache(tpSig, config.teleplayDir, newTpDb, 'teleplay-cache.json');
+    showCount = newTpDb.length;
+  }
+
+  console.log(`Rescan complete: ${movieCount} movies, ${showCount} shows`);
+  res.json({ movieCount, showCount });
 });
 
 // ── Serve frontend ───────────────────────────────────────────────────────────
@@ -94,6 +131,8 @@ if (fs.existsSync(frontendPath)) {
 async function init() {
   app.locals.movieDb = [];
   app.locals.sourceSignature = '';
+  app.locals.teleplayDb = [];
+  app.locals.teleplaySignature = '';
 
   if (config.movieDir) {
     const signature = buildSourceSignature(config.movieDir);
@@ -114,8 +153,31 @@ async function init() {
       saveCache(signature, config.movieDir, app.locals.movieDb);
       console.log(`Found ${app.locals.movieDb.length} movies`);
     }
-  } else {
-    console.log('No movie directory configured. Waiting for setup via frontend...');
+  }
+
+  if (config.teleplayDir) {
+    const tpSig = buildTeleplaySignature(config.teleplayDir);
+    const tpCached = loadCache('teleplay-cache.json');
+
+    if (
+      tpCached &&
+      tpCached.movieDir === config.teleplayDir &&
+      tpCached.signature === tpSig
+    ) {
+      app.locals.teleplayDb = tpCached.movies;
+      app.locals.teleplaySignature = tpSig;
+      console.log(`Loaded ${tpCached.movies.length} shows from cache`);
+    } else {
+      console.log(`Scanning teleplay directory: ${config.teleplayDir}`);
+      app.locals.teleplayDb = await scanTeleplays(config.teleplayDir);
+      app.locals.teleplaySignature = tpSig;
+      saveCache(tpSig, config.teleplayDir, app.locals.teleplayDb, 'teleplay-cache.json');
+      console.log(`Found ${app.locals.teleplayDb.length} shows`);
+    }
+  }
+
+  if (!config.movieDir && !config.teleplayDir) {
+    console.log('No media directory configured. Waiting for setup via frontend...');
   }
 
   app.listen(config.port, () => {
@@ -124,19 +186,33 @@ async function init() {
 
   // Detect source update automatically and refresh only when changed.
   setInterval(async () => {
-    if (!config.movieDir || isScanning) return;
-
-    const nextSig = buildSourceSignature(config.movieDir);
-    if (!nextSig || nextSig === app.locals.sourceSignature) return;
+    if ((!config.movieDir && !config.teleplayDir) || isScanning) return;
 
     isScanning = true;
     try {
-      console.log('Source data changed. Auto rescanning...');
-      const nextDb = await scanMovies(config.movieDir);
-      app.locals.movieDb = nextDb;
-      app.locals.sourceSignature = nextSig;
-      saveCache(nextSig, config.movieDir, nextDb);
-      console.log(`Auto rescan complete: ${nextDb.length} movies`);
+      if (config.movieDir) {
+        const nextSig = buildSourceSignature(config.movieDir);
+        if (nextSig && nextSig !== app.locals.sourceSignature) {
+          console.log('Movie source changed. Auto rescanning...');
+          const nextDb = await scanMovies(config.movieDir);
+          app.locals.movieDb = nextDb;
+          app.locals.sourceSignature = nextSig;
+          saveCache(nextSig, config.movieDir, nextDb);
+          console.log(`Auto rescan movies: ${nextDb.length}`);
+        }
+      }
+
+      if (config.teleplayDir) {
+        const nextTpSig = buildTeleplaySignature(config.teleplayDir);
+        if (nextTpSig && nextTpSig !== app.locals.teleplaySignature) {
+          console.log('Teleplay source changed. Auto rescanning...');
+          const nextTpDb = await scanTeleplays(config.teleplayDir);
+          app.locals.teleplayDb = nextTpDb;
+          app.locals.teleplaySignature = nextTpSig;
+          saveCache(nextTpSig, config.teleplayDir, nextTpDb, 'teleplay-cache.json');
+          console.log(`Auto rescan shows: ${nextTpDb.length}`);
+        }
+      }
     } catch (err) {
       console.error('Auto rescan failed:', err.message);
     } finally {

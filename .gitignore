@@ -3,6 +3,8 @@ cache/
 package-lock.json
 settings.json
 movie-cache.json
+teleplay-cache.json
+users.json
 
 # OS
 Thumbs.db

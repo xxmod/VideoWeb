@@ -7,7 +7,9 @@ const API_BASE = window.API_BASE || `${location.origin}/api`;
 // ── State ────────────────────────────────────────────────────────────────────
 
 let allMovies = [];        // full list from API
-let currentDetail = null;  // currently displayed movie detail
+let allTeleplays = [];     // full list of TV shows
+let currentDetail = null;  // currently displayed movie/show detail
+let currentTab = 'movies'; // 'movies' or 'teleplays'
 let authToken = localStorage.getItem('vw_token') || '';
 let currentUser = null;    // { username, isAdmin }
 let watchData = {};        // { movieId: { status, progress, duration, updatedAt } }
@@ -15,12 +17,14 @@ let watchData = {};        // { movieId: { status, progress, duration, updatedAt
 // ── DOM references ───────────────────────────────────────────────────────────
 
 const $grid      = document.getElementById('movieGrid');
+const $tpGrid    = document.getElementById('teleplayGrid');
 const $loading   = document.getElementById('loading');
 const $empty     = document.getElementById('emptyMsg');
 const $search    = document.getElementById('searchInput');
 const $count     = document.getElementById('movieCount');
 const $library   = document.getElementById('library');
 const $detail    = document.getElementById('detailModal');
+const $showDetail= document.getElementById('showDetailModal');
 const $player    = document.getElementById('playerView');
 const $btnRescan = document.getElementById('btnRescan');
 
@@ -55,6 +59,23 @@ async function apiPost(path, body) {
 function imgUrl(id, type, original) {
   const base = `${API_BASE}/movies/${id}/image/${type}`;
   return original ? `${base}?original=1` : base;
+}
+function tpImgUrl(id, type, original) {
+  const base = `${API_BASE}/teleplays/${id}/image/${type}`;
+  return original ? `${base}?original=1` : base;
+}
+function tpSeasonPosterUrl(id, snum, original) {
+  const base = `${API_BASE}/teleplays/${id}/season/${snum}/poster`;
+  return original ? `${base}?original=1` : base;
+}
+function tpEpThumbUrl(id, snum, eid) {
+  return `${API_BASE}/teleplays/${id}/season/${snum}/episode/${eid}/thumb`;
+}
+function tpStreamUrl(id, snum, eid) {
+  return `${API_BASE}/teleplays/${id}/season/${snum}/episode/${eid}/stream`;
+}
+function tpSubtitleUrl(id, snum, eid, f) {
+  return `${API_BASE}/teleplays/${id}/season/${snum}/episode/${eid}/subtitle/${encodeURIComponent(f)}`;
 }
 function streamUrl(id)     { return `${API_BASE}/movies/${id}/stream`; }
 function subtitleUrl(id,f) { return `${API_BASE}/movies/${id}/subtitle/${encodeURIComponent(f)}`; }
@@ -314,15 +335,38 @@ function formatTime(s) {
   return `${m}:${String(sec).padStart(2,'0')}`;
 }
 
-// ── Movie list ───────────────────────────────────────────────────────────────
+// ── Movie & Teleplay list ────────────────────────────────────────────────────
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  $grid.classList.toggle('hidden', tab !== 'movies');
+  $tpGrid.classList.toggle('hidden', tab !== 'teleplays');
+  document.getElementById('continueSection').classList.toggle('hidden', tab !== 'movies');
+  $search.placeholder = tab === 'movies' ? '搜索电影…' : '搜索电视剧…';
+  $search.value = '';
+  updateCount();
+  $empty.classList.add('hidden');
+}
+
+function updateCount() {
+  if (currentTab === 'movies') {
+    $count.textContent = `${allMovies.length} 部`;
+  } else {
+    $count.textContent = `${allTeleplays.length} 部`;
+  }
+}
 
 async function loadMovies() {
   $loading.classList.remove('hidden');
   $grid.innerHTML = '';
+  $tpGrid.innerHTML = '';
   try {
     allMovies = await api('/movies');
-    $count.textContent = `${allMovies.length} 部`;
+    allTeleplays = await api('/teleplays');
+    updateCount();
     renderGrid(allMovies);
+    renderTeleplayGrid(allTeleplays);
     renderContinueWatching();
   } catch (err) {
     $loading.textContent = '加载失败: ' + err.message;
@@ -373,17 +417,64 @@ function renderGrid(movies) {
   }
 }
 
+// ── Teleplay Grid ────────────────────────────────────────────────────────────
+
+function renderTeleplayGrid(shows) {
+  $loading.classList.add('hidden');
+  if (currentTab === 'teleplays') {
+    $empty.classList.toggle('hidden', shows.length > 0);
+  }
+  $tpGrid.innerHTML = '';
+
+  for (const s of shows) {
+    const card = document.createElement('div');
+    card.className = 'movie-card';
+    card.onclick = () => { location.hash = `#/show/${s.id}`; };
+
+    const posterHTML = s.hasPoster
+      ? `<img src="${tpImgUrl(s.id, 'poster')}" alt="${esc(s.title)}" loading="lazy">`
+      : `<div class="no-poster">${esc(s.title)}</div>`;
+
+    const ratingHTML = s.rating
+      ? `<span class="rating-badge">★ ${s.rating.toFixed(1)}</span>`
+      : '';
+
+    const epInfo = `${s.seasonCount}季 ${s.totalEpisodes}集`;
+
+    card.innerHTML = `
+      <div class="poster-wrap">
+        ${posterHTML}
+        ${ratingHTML}
+      </div>
+      <div class="card-info">
+        <div class="card-title" title="${esc(s.title)}">${esc(s.title)}</div>
+        <div class="card-year">${s.year || ''} · ${epInfo}</div>
+      </div>`;
+    $tpGrid.appendChild(card);
+  }
+}
+
 // ── Search / Filter ──────────────────────────────────────────────────────────
 
 $search.addEventListener('input', () => {
   const q = $search.value.trim().toLowerCase();
-  if (!q) { renderGrid(allMovies); return; }
-  const filtered = allMovies.filter(m =>
-    m.title.toLowerCase().includes(q) ||
-    (m.originalTitle && m.originalTitle.toLowerCase().includes(q)) ||
-    (m.year && String(m.year).includes(q))
-  );
-  renderGrid(filtered);
+  if (currentTab === 'movies') {
+    if (!q) { renderGrid(allMovies); return; }
+    const filtered = allMovies.filter(m =>
+      m.title.toLowerCase().includes(q) ||
+      (m.originalTitle && m.originalTitle.toLowerCase().includes(q)) ||
+      (m.year && String(m.year).includes(q))
+    );
+    renderGrid(filtered);
+  } else {
+    if (!q) { renderTeleplayGrid(allTeleplays); return; }
+    const filtered = allTeleplays.filter(s =>
+      s.title.toLowerCase().includes(q) ||
+      (s.originalTitle && s.originalTitle.toLowerCase().includes(q)) ||
+      (s.year && String(s.year).includes(q))
+    );
+    renderTeleplayGrid(filtered);
+  }
 });
 
 // ── Detail view ──────────────────────────────────────────────────────────────
@@ -482,6 +573,109 @@ async function showDetail(id) {
   showView('detail');
 }
 
+// ── TV Show Detail ───────────────────────────────────────────────────────────
+
+async function showShowDetail(id) {
+  let show;
+  try {
+    show = await api(`/teleplays/${id}`);
+    currentDetail = show;
+  } catch {
+    location.hash = '#/';
+    return;
+  }
+
+  // Hero
+  const $hero = document.getElementById('showHero');
+  if (show.images.includes('fanart')) {
+    $hero.style.backgroundImage = `url(${tpImgUrl(show.id, 'fanart', true)})`;
+  } else {
+    $hero.style.backgroundImage = 'none';
+    $hero.style.background = '#1a1a1a';
+  }
+
+  // Poster
+  const $poster = document.getElementById('showPoster');
+  if (show.images.includes('poster')) {
+    $poster.innerHTML = `<img src="${tpImgUrl(show.id, 'poster', true)}" alt="${esc(show.title)}">`;
+  } else {
+    $poster.innerHTML = `<div class="no-poster" style="width:200px;height:300px">${esc(show.title)}</div>`;
+  }
+
+  // Info
+  const meta = [];
+  if (show.year) meta.push(`<span>${show.year}</span>`);
+  if (show.rating) meta.push(`<span>★ ${show.rating.toFixed(1)}</span>`);
+  if (show.status) meta.push(`<span>${esc(show.status)}</span>`);
+  if (show.mpaa) meta.push(`<span>${esc(show.mpaa)}</span>`);
+  meta.push(`<span>${show.seasons.length}季 ${show.seasons.reduce((s,a) => s+a.episodeCount, 0)}集</span>`);
+
+  const genres = show.genres.map(g => `<span class="genre-tag">${esc(g)}</span>`).join('');
+
+  document.getElementById('showInfo').innerHTML = `
+    <h2>${esc(show.title)}</h2>
+    ${show.originalTitle ? `<p style="color:#888;font-size:14px;margin-bottom:6px">${esc(show.originalTitle)}</p>` : ''}
+    <div class="meta">${meta.join('')}</div>
+    <div class="genres">${genres}</div>
+    ${show.plot ? `<p class="plot">${esc(show.plot)}</p>` : ''}`;
+
+  // Cast
+  const $cast = document.getElementById('showCast');
+  if (show.actors && show.actors.length) {
+    const cards = show.actors.slice(0, 20).map(a => {
+      const thumb = a.thumb
+        ? `<img src="${esc(a.thumb)}" alt="${esc(a.name)}" loading="lazy">`
+        : a.name.charAt(0);
+      return `
+        <div class="cast-card">
+          <div class="cast-thumb">${thumb}</div>
+          <div class="cast-name">${esc(a.name)}</div>
+          <div class="cast-role">${esc(a.role)}</div>
+        </div>`;
+    }).join('');
+    $cast.innerHTML = `<h3>演员</h3><div class="cast-grid">${cards}</div>`;
+  } else {
+    $cast.innerHTML = '';
+  }
+
+  // Seasons & Episodes
+  const $seasons = document.getElementById('seasonSection');
+  let seasonsHTML = '<div class="season-tabs">';
+  show.seasons.forEach((s, i) => {
+    seasonsHTML += `<button class="season-tab${i === 0 ? ' active' : ''}" onclick="showSeason(${i})" data-sidx="${i}">${esc(s.title)}</button>`;
+  });
+  seasonsHTML += '</div>';
+
+  show.seasons.forEach((s, i) => {
+    seasonsHTML += `<div class="season-episodes${i === 0 ? '' : ' hidden'}" data-season-idx="${i}">`;
+    for (const ep of s.episodes) {
+      const thumbHTML = ep.hasThumb
+        ? `<img src="${tpEpThumbUrl(show.id, s.seasonNumber, ep.id)}" loading="lazy">`
+        : `<div class="ep-no-thumb">E${ep.episode}</div>`;
+      const sizeGB = (ep.videoSize / (1024 ** 3)).toFixed(2);
+      seasonsHTML += `
+        <div class="episode-card" onclick="location.hash='#/play-ep/${show.id}/${s.seasonNumber}/${ep.id}'">
+          <div class="ep-thumb">${thumbHTML}</div>
+          <div class="ep-info">
+            <div class="ep-title">E${String(ep.episode).padStart(2,'0')} · ${esc(ep.title)}</div>
+            <div class="ep-meta">${ep.runtime ? ep.runtime + ' 分钟' : ''} ${sizeGB} GB ${ep.subtitleCount > 0 ? '· 字幕' : ''}</div>
+            ${ep.plot ? `<div class="ep-plot">${esc(ep.plot)}</div>` : ''}
+          </div>
+        </div>`;
+    }
+    seasonsHTML += '</div>';
+  });
+
+  $seasons.innerHTML = seasonsHTML;
+
+  showView('showDetail');
+}
+
+function showSeason(idx) {
+  document.querySelectorAll('.season-tab').forEach(b => b.classList.toggle('active', parseInt(b.dataset.sidx) === idx));
+  document.querySelectorAll('.season-episodes').forEach(d => d.classList.toggle('hidden', parseInt(d.dataset.seasonIdx) !== idx));
+}
+
 async function toggleWatched(movieId) {
   const w = watchData[movieId];
   try {
@@ -508,6 +702,7 @@ async function toggleWatched(movieId) {
 function showView(view) {
   $library.classList.toggle('hidden', view !== 'library');
   $detail.classList.toggle('hidden',  view !== 'detail');
+  $showDetail.classList.toggle('hidden', view !== 'showDetail');
   $player.classList.toggle('hidden',  view !== 'player');
 
   if (view !== 'player') {
@@ -518,9 +713,21 @@ function showView(view) {
 function handleRoute() {
   const hash = location.hash || '#/';
 
+  if (hash.startsWith('#/play-ep/')) {
+    const parts = hash.substring(10).split('/');
+    if (parts.length === 3) openEpisodePlayer(parts[0], parseInt(parts[1]), parts[2]);
+    return;
+  }
+
   if (hash.startsWith('#/play/')) {
     const id = hash.substring(7);
     openPlayer(id);
+    return;
+  }
+
+  if (hash.startsWith('#/show/')) {
+    const id = hash.substring(7);
+    showShowDetail(id);
     return;
   }
 
@@ -558,7 +765,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (!$player.classList.contains('hidden')) {
       history.back();
-    } else if (!$detail.classList.contains('hidden')) {
+    } else if (!$detail.classList.contains('hidden') || !$showDetail.classList.contains('hidden')) {
       location.hash = '#/';
     }
   }
@@ -632,6 +839,7 @@ async function openSettings() {
 function showSetup(settings, showAdmin) {
   $setupOverlay.classList.remove('hidden');
   document.getElementById('setupMovieDir').value = settings.movieDir || '';
+  document.getElementById('setupTeleplayDir').value = settings.teleplayDir || '';
   document.getElementById('setupPort').value = settings.port || 48233;
   document.getElementById('setupPort').placeholder = String(settings.port || 48233);
 
@@ -670,9 +878,10 @@ $setupForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const btn = document.getElementById('btnSetup');
   const movieDir = document.getElementById('setupMovieDir').value.trim();
+  const teleplayDir = document.getElementById('setupTeleplayDir').value.trim();
   const port = document.getElementById('setupPort').value.trim();
 
-  if (!movieDir) { showSetupError('请输入电影文件夹路径'); return; }
+  if (!movieDir && !teleplayDir) { showSetupError('请至少输入一个文件夹路径'); return; }
 
   btn.disabled = true;
   btn.textContent = '正在扫描…';
@@ -702,7 +911,7 @@ $setupForm.addEventListener('submit', async (e) => {
     const res = await fetch(`${API_BASE}/settings`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ movieDir, port: parseInt(port) || undefined }),
+      body: JSON.stringify({ movieDir, teleplayDir, port: parseInt(port) || undefined }),
     });
     const data = await res.json();
     if (!res.ok) { showSetupError(data.error || '保存失败'); return; }

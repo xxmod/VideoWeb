@@ -13,9 +13,15 @@ async function parseNfo(filePath) {
   });
 
   const result = await parser.parseStringPromise(content);
+
+  // Determine root type
+  if (result.tvshow) return parseTvShow(result.tvshow);
+  if (result.season) return parseSeason(result.season);
+
   const data = result.movie || result.episodedetails || result;
 
   return {
+    _type: result.episodedetails ? 'episode' : 'movie',
     title: getField(data, 'title'),
     originaltitle: getField(data, 'originaltitle'),
     sorttitle: getField(data, 'sorttitle'),
@@ -34,7 +40,62 @@ async function parseNfo(filePath) {
     actors: parseActors(data.actor),
     uniqueIds: parseUniqueIds(data.uniqueid),
     art: parseArt(data.art),
+    // Episode-specific fields
+    season: parseInt(getField(data, 'season')) || null,
+    episode: parseInt(getField(data, 'episode')) || null,
+    aired: getField(data, 'aired'),
   };
+}
+
+function parseTvShow(data) {
+  return {
+    _type: 'tvshow',
+    title: getField(data, 'title'),
+    originaltitle: getField(data, 'originaltitle'),
+    sorttitle: getField(data, 'sorttitle'),
+    rating: parseFloat(getField(data, 'rating')) || null,
+    year: parseInt(getField(data, 'year')) || null,
+    votes: parseInt(getField(data, 'votes')) || null,
+    outline: getField(data, 'outline'),
+    plot: getField(data, 'plot'),
+    tagline: getField(data, 'tagline'),
+    runtime: parseInt(getField(data, 'runtime')) || null,
+    mpaa: getField(data, 'mpaa'),
+    genres: getArray(data, 'genre'),
+    country: getField(data, 'country'),
+    studio: getField(data, 'studio'),
+    directors: getArray(data, 'director'),
+    actors: parseActors(data.actor),
+    uniqueIds: parseUniqueIds(data.uniqueid),
+    art: parseArt(data.art),
+    premiered: getField(data, 'premiered'),
+    status: getField(data, 'status'),
+    namedseasons: parseNamedSeasons(data.namedseason),
+  };
+}
+
+function parseSeason(data) {
+  return {
+    _type: 'season',
+    title: getField(data, 'title'),
+    year: parseInt(getField(data, 'year')) || null,
+    plot: getField(data, 'plot'),
+    seasonnumber: parseInt(getField(data, 'seasonnumber')) || null,
+    premiered: getField(data, 'premiered'),
+    art: parseArt(data.art),
+  };
+}
+
+function parseNamedSeasons(nodes) {
+  if (!nodes) return {};
+  if (!Array.isArray(nodes)) nodes = [nodes];
+  const result = {};
+  for (const n of nodes) {
+    if (n && n.$ && n.$.number != null) {
+      result[n.$.number] = n._ || n.$ && n.$.number || '';
+    }
+  }
+  return result;
 }
 
 function getField(data, field) {

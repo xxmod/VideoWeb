@@ -7,6 +7,7 @@ const $playerTitle  = document.getElementById('playerTitle');
 const $subSelector  = document.getElementById('subtitleSelector');
 
 let currentMovieId = null;
+let currentEpisodeInfo = null; // { showId, seasonNum, episodeId }
 let progressTimer = null;
 
 // ── Open player ──────────────────────────────────────────────────────────────
@@ -137,6 +138,7 @@ function stopPlayer() {
   while ($video.firstChild) $video.removeChild($video.firstChild);
   $video.load(); // release resources
   currentMovieId = null;
+  currentEpisodeInfo = null;
 }
 
 // ── Save watch progress ──────────────────────────────────────────────────────
@@ -189,4 +191,61 @@ function langCodeToISO(code) {
     vie: 'vi',
   };
   return map[code] || code;
+}
+
+// ── Episode player ───────────────────────────────────────────────────────────
+
+async function openEpisodePlayer(showId, seasonNum, episodeId) {
+  currentMovieId = null;
+  currentEpisodeInfo = { showId, seasonNum, episodeId };
+
+  // Fetch show detail to get episode info
+  let show;
+  try {
+    show = await api(`/teleplays/${showId}`);
+  } catch {
+    alert('无法获取剧集信息');
+    location.hash = '#/';
+    return;
+  }
+
+  const season = show.seasons.find(s => s.seasonNumber === seasonNum);
+  if (!season) { alert('找不到该季'); location.hash = '#/'; return; }
+
+  const episode = season.episodes.find(e => e.id === episodeId);
+  if (!episode) { alert('找不到该集'); location.hash = '#/'; return; }
+
+  $playerTitle.textContent = `${show.title} - S${String(seasonNum).padStart(2,'0')}E${String(episode.episode).padStart(2,'0')} · ${episode.title}`;
+
+  // Remove old tracks and source
+  while ($video.firstChild) $video.removeChild($video.firstChild);
+
+  // Set video source
+  $video.src = tpStreamUrl(showId, seasonNum, episodeId);
+
+  // Add subtitle tracks
+  const subs = episode.subtitles || [];
+  subs.forEach((sub) => {
+    const track = document.createElement('track');
+    track.kind = 'subtitles';
+    track.label = sub.label;
+    track.srclang = langCodeToISO(sub.langCode);
+    track.src = tpSubtitleUrl(showId, seasonNum, episodeId, sub.file);
+    if (sub.langCode === 'zho' || sub.langCode === 'chi' || sub.langCode === 'cmn') {
+      track.default = true;
+    }
+    $video.appendChild(track);
+  });
+
+  buildSubtitleSelector(subs);
+  showView('player');
+  $video.focus();
+
+  // Wait for metadata to enable default track
+  $video.addEventListener('loadedmetadata', activateDefaultTrack, { once: true });
+
+  // Start periodic progress saving
+  clearInterval(progressTimer);
+  progressTimer = setInterval(() => saveProgress(), 10000);
+  $video.addEventListener('pause', saveProgress);
 }

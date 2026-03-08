@@ -48,7 +48,11 @@
           </div>
           <div class="setup-field">
             <label for="setupMovieDir">电影文件夹路径</label>
-            <input type="text" id="setupMovieDir" placeholder="例如 Z:\movie&teleplay\movie" required>
+            <input type="text" id="setupMovieDir" placeholder="例如 Z:\movie&teleplay\movie">
+          </div>
+          <div class="setup-field">
+            <label for="setupTeleplayDir">电视剧文件夹路径</label>
+            <input type="text" id="setupTeleplayDir" placeholder="例如 Z:\movie&teleplay\teleplay">
           </div>
           <div class="setup-field">
             <label for="setupPort">服务端口</label>
@@ -104,7 +108,11 @@
         <h1 class="logo" onclick="location.hash='#/'">VideoWeb</h1>
       </div>
       <div class="header-center">
-        <input type="search" id="searchInput" placeholder="搜索电影…" autocomplete="off">
+        <div class="tab-bar">
+          <button class="tab-btn active" data-tab="movies" onclick="switchTab('movies')">电影</button>
+          <button class="tab-btn" data-tab="teleplays" onclick="switchTab('teleplays')">电视剧</button>
+        </div>
+        <input type="search" id="searchInput" placeholder="搜索…" autocomplete="off">
       </div>
       <div class="header-right">
         <div class="user-menu" id="userMenu">
@@ -130,8 +138,9 @@
         <div id="continueGrid" class="continue-grid"></div>
       </div>
       <div id="movieGrid" class="movie-grid"></div>
+      <div id="teleplayGrid" class="movie-grid hidden"></div>
       <div id="loading" class="center-msg">加载中…</div>
-      <div id="emptyMsg" class="center-msg hidden">未找到电影</div>
+      <div id="emptyMsg" class="center-msg hidden">未找到内容</div>
     </main>
 
     <!-- ─── Detail Modal ───────────────────────────────────────── -->
@@ -145,6 +154,21 @@
           <div class="detail-info" id="detailInfo"></div>
         </div>
         <div class="detail-cast" id="detailCast"></div>
+      </div>
+    </div>
+
+    <!-- ─── TV Show Detail Modal ───────────────────────────────── -->
+    <div id="showDetailModal" class="modal hidden">
+      <div class="modal-backdrop" onclick="location.hash='#/'"></div>
+      <div class="modal-content">
+        <button class="modal-close" onclick="location.hash='#/'">&times;</button>
+        <div class="detail-hero" id="showHero"></div>
+        <div class="detail-body">
+          <div class="detail-poster" id="showPoster"></div>
+          <div class="detail-info" id="showInfo"></div>
+        </div>
+        <div class="detail-cast" id="showCast"></div>
+        <div class="season-section" id="seasonSection"></div>
       </div>
     </div>
 

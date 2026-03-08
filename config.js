@@ -6,6 +6,7 @@ const CONFIG_FILE = path.join(__dirname, 'settings.json');
 const defaults = {
   port: 48233,
   movieDir: '',
+  teleplayDir: '',
 };
 
 function load() {
@@ -19,7 +20,7 @@ function load() {
 }
 
 function save(cfg) {
-  const data = { port: cfg.port || defaults.port, movieDir: cfg.movieDir || '' };
+  const data = { port: cfg.port || defaults.port, movieDir: cfg.movieDir || '', teleplayDir: cfg.teleplayDir || '' };
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(data, null, 2), 'utf-8');
   return data;
 }
@@ -29,9 +30,10 @@ const saved = load();
 const config = {
   port: parseInt(process.env.PORT) || saved.port,
   movieDir: process.env.MOVIE_DIR || saved.movieDir,
+  teleplayDir: process.env.TELEPLAY_DIR || saved.teleplayDir,
   load,
   save,
-  get needsSetup() { return !this.movieDir; },
+  get needsSetup() { return !this.movieDir && !this.teleplayDir; },
 };
 
 module.exports = config;
