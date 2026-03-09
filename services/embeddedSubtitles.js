@@ -122,6 +122,31 @@ function extractSubtitle(videoPath, subtitleIndex) {
   });
 }
 
+// ── Extract subtitle as raw ASS/SSA (native format) ─────────────────────────
+
+function extractRawSubtitle(videoPath, subtitleIndex) {
+  return new Promise((resolve, reject) => {
+    const args = [
+      '-i', videoPath,
+      '-map', `0:s:${subtitleIndex}`,
+      '-c:s', 'copy',
+      '-f', 'ass',
+      '-v', 'quiet',
+      'pipe:1',
+    ];
+
+    execFile(ffmpegPath, args, {
+      maxBuffer: 10 * 1024 * 1024,
+      timeout: 30000,
+      encoding: 'utf-8',
+    }, (err, stdout) => {
+      if (err) return reject(new Error(`提取字幕失败: ${err.message}`));
+      if (!stdout || stdout.trim().length === 0) return reject(new Error('字幕内容为空'));
+      resolve(stdout);
+    });
+  });
+}
+
 // ── Check if ffmpeg is available ─────────────────────────────────────────────
 
 let _ffmpegAvailable = null;
@@ -139,4 +164,4 @@ function checkFfmpeg() {
   });
 }
 
-module.exports = { probeSubtitles, extractSubtitle, checkFfmpeg };
+module.exports = { probeSubtitles, extractSubtitle, extractRawSubtitle, checkFfmpeg };

@@ -5,7 +5,7 @@ const path = require('path');
 const mime = require('mime-types');
 const { convertSubtitleToVtt } = require('../services/subtitleService');
 const { getThumbnail } = require('../services/imageCache');
-const { extractSubtitle } = require('../services/embeddedSubtitles');
+const { extractSubtitle, extractRawSubtitle } = require('../services/embeddedSubtitles');
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -271,6 +271,14 @@ router.get('/:id/season/:snum/episode/:eid/subtitle/:file', (req, res) => {
     return res.status(404).json({ error: 'Subtitle file not found' });
   }
 
+  // Serve raw file for ASS/SSA when ?raw=1
+  if (req.query.raw === '1') {
+    const ext = path.extname(subPath).toLowerCase();
+    const mimeType = ext === '.ass' || ext === '.ssa' ? 'text/plain; charset=utf-8' : 'text/plain; charset=utf-8';
+    res.type(mimeType).send(fs.readFileSync(subPath, 'utf-8'));
+    return;
+  }
+
   try {
     const vtt = convertSubtitleToVtt(subPath);
     res.type('text/vtt; charset=utf-8').send(vtt);
@@ -302,6 +310,12 @@ router.get('/:id/season/:snum/episode/:eid/embedded-subtitle/:index', async (req
   }
 
   try {
+    // Extract as native format (ASS) when ?raw=1
+    if (req.query.raw === '1' && (sub.codec === 'ass' || sub.codec === 'ssa')) {
+      const raw = await extractRawSubtitle(videoPath, idx);
+      res.type('text/plain; charset=utf-8').send(raw);
+      return;
+    }
     const vtt = await extractSubtitle(videoPath, idx);
     res.type('text/vtt; charset=utf-8').send(vtt);
   } catch (err) {

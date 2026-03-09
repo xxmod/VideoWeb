@@ -9,6 +9,8 @@ const $subSelector  = document.getElementById('subtitleSelector');
 let currentMovieId = null;
 let currentEpisodeInfo = null; // { showId, seasonNum, episodeId }
 let progressTimer = null;
+let jassubRenderer = null;   // JASSUB instance for ASS subtitle rendering
+let currentAllSubs = [];     // current subtitle list with format info
 
 // ── Open player ──────────────────────────────────────────────────────────────
 
@@ -45,6 +47,7 @@ async function openPlayer(id) {
       langCode: sub.langCode,
       src: subtitleUrl(id, sub.file),
       type: 'external',
+      isAss: sub.format === 'ass' || sub.format === 'ssa',
     });
   });
   const embSubs = movie.embeddedSubtitles || [];
@@ -56,6 +59,7 @@ async function openPlayer(id) {
       src: embeddedSubUrl(id, sub.index),
       type: 'embedded',
       isDefault: sub.isDefault,
+      isAss: sub.codec === 'ass' || sub.codec === 'ssa',
     });
   });
 
@@ -100,30 +104,28 @@ async function openPlayer(id) {
 // ── Activate default subtitle ────────────────────────────────────────────────
 
 function activateDefaultTrack() {
-  const tracks = $video.textTracks;
-  if (!tracks || tracks.length === 0) return;
+  if (!currentAllSubs || currentAllSubs.length === 0) return;
 
   let chineseIdx = -1;
-  for (let i = 0; i < tracks.length; i++) {
-    tracks[i].mode = 'disabled';
-    if (chineseIdx < 0 && ['zh', 'zh-CN', 'zh-Hans'].includes(tracks[i].language)) {
+  for (let i = 0; i < currentAllSubs.length; i++) {
+    const lc = currentAllSubs[i].langCode;
+    if (chineseIdx < 0 && (lc === 'zho' || lc === 'chi' || lc === 'cmn')) {
       chineseIdx = i;
     }
   }
 
   // Enable Chinese track, or first track if no Chinese
   const defaultIdx = chineseIdx >= 0 ? chineseIdx : 0;
-  if (tracks.length > 0) {
-    tracks[defaultIdx].mode = 'showing';
-    // Sync selector
-    const sel = $subSelector.querySelector('select');
-    if (sel) sel.value = String(defaultIdx);
-  }
+  switchSubtitle(defaultIdx);
+  const sel = $subSelector.querySelector('select');
+  if (sel) sel.value = String(defaultIdx);
 }
 
 // ── Subtitle selector dropdown ───────────────────────────────────────────────
 
 function buildSubtitleSelector(subs) {
+  currentAllSubs = subs;
+
   if (subs.length === 0) {
     $subSelector.innerHTML = '<label style="color:#666">无字幕</label>';
     return;
@@ -140,11 +142,52 @@ function buildSubtitleSelector(subs) {
   const sel = document.getElementById('subSelect');
   sel.addEventListener('change', () => {
     const idx = parseInt(sel.value, 10);
-    const tracks = $video.textTracks;
-    for (let i = 0; i < tracks.length; i++) {
-      tracks[i].mode = i === idx ? 'showing' : 'disabled';
-    }
+    switchSubtitle(idx);
   });
+}
+
+// ── Subtitle switching (ASS via JASSUB, others via native track) ─────────────
+
+function switchSubtitle(idx) {
+  // Disable all native tracks
+  const tracks = $video.textTracks;
+  for (let i = 0; i < tracks.length; i++) {
+    tracks[i].mode = 'disabled';
+  }
+
+  // Destroy existing JASSUB renderer
+  destroyJassub();
+
+  if (idx < 0 || idx >= currentAllSubs.length) return;
+
+  const sub = currentAllSubs[idx];
+
+  if (sub.isAss && typeof JASSUB !== 'undefined') {
+    // Use JASSUB for ASS/SSA subtitles with full styling
+    const rawSrc = sub.src + (sub.src.includes('?') ? '&' : '?') + 'raw=1';
+    try {
+      jassubRenderer = new JASSUB({
+        video: $video,
+        subUrl: rawSrc,
+        workerUrl: 'https://cdn.jsdelivr.net/npm/jassub/dist/jassub-worker.js',
+        wasmUrl: 'https://cdn.jsdelivr.net/npm/jassub/dist/jassub-worker.wasm',
+      });
+    } catch (e) {
+      console.warn('JASSUB init failed, falling back to VTT:', e);
+      // Fallback to native VTT track
+      if (tracks[idx]) tracks[idx].mode = 'showing';
+    }
+  } else {
+    // Use native track for non-ASS subtitles
+    if (tracks[idx]) tracks[idx].mode = 'showing';
+  }
+}
+
+function destroyJassub() {
+  if (jassubRenderer) {
+    try { jassubRenderer.destroy(); } catch (e) {}
+    jassubRenderer = null;
+  }
 }
 
 // ── Stop / cleanup ───────────────────────────────────────────────────────────
@@ -154,6 +197,8 @@ function stopPlayer() {
   clearInterval(progressTimer);
   progressTimer = null;
   $video.removeEventListener('pause', saveProgress);
+  destroyJassub();
+  currentAllSubs = [];
   $video.pause();
   $video.removeAttribute('src');
   while ($video.firstChild) $video.removeChild($video.firstChild);
@@ -253,6 +298,7 @@ async function openEpisodePlayer(showId, seasonNum, episodeId) {
       langCode: sub.langCode,
       src: tpSubtitleUrl(showId, seasonNum, episodeId, sub.file),
       type: 'external',
+      isAss: sub.format === 'ass' || sub.format === 'ssa',
     });
   });
   const embSubs = episode.embeddedSubtitles || [];
@@ -264,6 +310,7 @@ async function openEpisodePlayer(showId, seasonNum, episodeId) {
       src: tpEmbeddedSubUrl(showId, seasonNum, episodeId, sub.index),
       type: 'embedded',
       isDefault: sub.isDefault,
+      isAss: sub.codec === 'ass' || sub.codec === 'ssa',
     });
   });
 
