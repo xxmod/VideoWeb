@@ -6,8 +6,8 @@ const config = require('./config');
 const movieRoutes = require('./routes/movies');
 const teleplayRoutes = require('./routes/teleplays');
 const authRoutes = require('./routes/auth');
-const { scanMovies, buildSourceSignature } = require('./services/scanner');
-const { scanTeleplays, buildTeleplaySignature } = require('./services/teleplayScanner');
+const { scanMovies, incrementalScanMovies, buildSourceSignature } = require('./services/scanner');
+const { scanTeleplays, incrementalScanTeleplays, buildTeleplaySignature } = require('./services/teleplayScanner');
 const { loadCache, saveCache } = require('./services/cacheService');
 const { hasAnyUser } = require('./services/userService');
 
@@ -115,23 +115,23 @@ app.post('/api/rescan', adminRequired, async (req, res) => {
     let movieCount = 0, showCount = 0;
 
     if (config.movieDir) {
-      console.log('Rescanning movie directory...');
-      const newDb = await scanMovies(config.movieDir);
+      console.log('Incremental rescanning movie directory...');
+      const result = await incrementalScanMovies(config.movieDir, app.locals.movieDb || []);
       const signature = buildSourceSignature(config.movieDir);
-      app.locals.movieDb = newDb;
+      app.locals.movieDb = result.db;
       app.locals.sourceSignature = signature;
-      saveCache(signature, config.movieDir, newDb);
-      movieCount = newDb.length;
+      if (result.changed) saveCache(signature, config.movieDir, result.db);
+      movieCount = result.db.length;
     }
 
     if (config.teleplayDir) {
-      console.log('Rescanning teleplay directory...');
-      const newTpDb = await scanTeleplays(config.teleplayDir);
+      console.log('Incremental rescanning teleplay directory...');
+      const result = await incrementalScanTeleplays(config.teleplayDir, app.locals.teleplayDb || []);
       const tpSig = buildTeleplaySignature(config.teleplayDir);
-      app.locals.teleplayDb = newTpDb;
+      app.locals.teleplayDb = result.db;
       app.locals.teleplaySignature = tpSig;
-      saveCache(tpSig, config.teleplayDir, newTpDb, 'teleplay-cache.json');
-      showCount = newTpDb.length;
+      if (result.changed) saveCache(tpSig, config.teleplayDir, result.db, 'teleplay-cache.json');
+      showCount = result.db.length;
     }
 
     console.log(`Rescan complete: ${movieCount} movies, ${showCount} shows`);
@@ -212,7 +212,7 @@ async function init() {
     console.log(`VideoWeb running on http://localhost:${config.port}`);
   });
 
-  // Detect source update automatically and refresh only when changed.
+  // Detect source update automatically and refresh only changed folders.
   setInterval(async () => {
     if ((!config.movieDir && !config.teleplayDir) || isScanning) return;
 
@@ -221,24 +221,24 @@ async function init() {
       if (config.movieDir) {
         const nextSig = buildSourceSignature(config.movieDir);
         if (nextSig && nextSig !== app.locals.sourceSignature) {
-          console.log('Movie source changed. Auto rescanning...');
-          const nextDb = await scanMovies(config.movieDir);
-          app.locals.movieDb = nextDb;
+          console.log('Movie source changed. Incremental rescanning...');
+          const result = await incrementalScanMovies(config.movieDir, app.locals.movieDb || []);
+          app.locals.movieDb = result.db;
           app.locals.sourceSignature = nextSig;
-          saveCache(nextSig, config.movieDir, nextDb);
-          console.log(`Auto rescan movies: ${nextDb.length}`);
+          if (result.changed) saveCache(nextSig, config.movieDir, result.db);
+          console.log(`Auto rescan movies: ${result.db.length}`);
         }
       }
 
       if (config.teleplayDir) {
         const nextTpSig = buildTeleplaySignature(config.teleplayDir);
         if (nextTpSig && nextTpSig !== app.locals.teleplaySignature) {
-          console.log('Teleplay source changed. Auto rescanning...');
-          const nextTpDb = await scanTeleplays(config.teleplayDir);
-          app.locals.teleplayDb = nextTpDb;
+          console.log('Teleplay source changed. Incremental rescanning...');
+          const result = await incrementalScanTeleplays(config.teleplayDir, app.locals.teleplayDb || []);
+          app.locals.teleplayDb = result.db;
           app.locals.teleplaySignature = nextTpSig;
-          saveCache(nextTpSig, config.teleplayDir, nextTpDb, 'teleplay-cache.json');
-          console.log(`Auto rescan shows: ${nextTpDb.length}`);
+          if (result.changed) saveCache(nextTpSig, config.teleplayDir, result.db, 'teleplay-cache.json');
+          console.log(`Auto rescan shows: ${result.db.length}`);
         }
       }
     } catch (err) {

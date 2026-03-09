@@ -382,7 +382,10 @@ async function scanTeleplays(teleplayDir) {
 
     try {
       const show = await scanShowFolder(folderPath, folderName);
-      if (show) shows.push(show);
+      if (show) {
+        show._folderSignature = buildShowFolderSignature(folderPath);
+        shows.push(show);
+      }
     } catch (err) {
       console.error(`Error scanning show "${folderName}": ${err.message}`);
     }
@@ -392,4 +395,119 @@ async function scanTeleplays(teleplayDir) {
   return shows;
 }
 
-module.exports = { scanTeleplays, buildTeleplaySignature };
+// ── Per-show folder signature for incremental scanning ───────────────────────
+
+function buildShowFolderSignature(showPath) {
+  try {
+    const showFiles = fs.readdirSync(showPath);
+    const regularFiles = showFiles.filter(f => {
+      try { return !fs.statSync(path.join(showPath, f)).isDirectory(); } catch { return true; }
+    }).sort((a, b) => a.localeCompare(b, 'zh'));
+
+    const showFileMeta = regularFiles.map(f => {
+      try {
+        const stat = fs.statSync(path.join(showPath, f));
+        return `${f}:${Math.floor(stat.mtimeMs)}:${stat.size}`;
+      } catch { return `${f}:0:0`; }
+    });
+
+    const subDirs = showFiles.filter(f => {
+      try { return fs.statSync(path.join(showPath, f)).isDirectory(); } catch { return false; }
+    }).sort((a, b) => a.localeCompare(b, 'zh'));
+
+    const subMeta = subDirs.map(sub => {
+      try {
+        const subPath = path.join(showPath, sub);
+        const files = fs.readdirSync(subPath).sort((a, b) => a.localeCompare(b, 'zh'));
+        const keyFiles = files.filter(f => {
+          const ext = path.extname(f).toLowerCase();
+          return VIDEO_EXTENSIONS.has(ext) || ext === '.nfo'
+            || ['.srt', '.ass', '.ssa', '.sub', '.vtt'].includes(ext);
+        });
+        const fileMeta = keyFiles.map(file => {
+          try {
+            const stat = fs.statSync(path.join(subPath, file));
+            return `${file}:${Math.floor(stat.mtimeMs)}:${stat.size}`;
+          } catch { return `${file}:0:0`; }
+        });
+        return `${sub}|${fileMeta.join(',')}`;
+      } catch { return `${sub}:0`; }
+    });
+
+    return crypto
+      .createHash('sha1')
+      .update([showFileMeta.join(','), ...subMeta].join('|'))
+      .digest('hex');
+  } catch {
+    return '';
+  }
+}
+
+// ── Incremental teleplay scan (only rescan changed/new show folders) ─────────
+
+async function incrementalScanTeleplays(teleplayDir, existingDb) {
+  const existingMap = new Map();
+  for (const show of existingDb) {
+    existingMap.set(show.folderName, show);
+  }
+
+  let entries;
+  try {
+    entries = fs.readdirSync(teleplayDir, { withFileTypes: true });
+  } catch (err) {
+    console.error(`Failed to read teleplay directory: ${err.message}`);
+    return { db: existingDb, changed: false };
+  }
+
+  const currentFolders = new Set();
+  const shows = [];
+  let addedCount = 0, changedCount = 0;
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+
+    const folderName = entry.name;
+    currentFolders.add(folderName);
+    const folderPath = path.join(teleplayDir, folderName);
+    const newSig = buildShowFolderSignature(folderPath);
+    const existing = existingMap.get(folderName);
+
+    if (existing && existing._folderSignature === newSig) {
+      shows.push(existing);
+    } else {
+      try {
+        const show = await scanShowFolder(folderPath, folderName);
+        if (show) {
+          show._folderSignature = newSig;
+          shows.push(show);
+          if (existing) {
+            changedCount++;
+            console.log(`  Updated show: ${folderName}`);
+          } else {
+            addedCount++;
+            console.log(`  Added show: ${folderName}`);
+          }
+        }
+      } catch (err) {
+        console.error(`Error scanning show "${folderName}": ${err.message}`);
+      }
+    }
+  }
+
+  let removedCount = 0;
+  for (const [folderName] of existingMap) {
+    if (!currentFolders.has(folderName)) {
+      removedCount++;
+      console.log(`  Removed show: ${folderName}`);
+    }
+  }
+
+  const changed = addedCount > 0 || changedCount > 0 || removedCount > 0;
+  if (changed) {
+    console.log(`Incremental teleplay scan: +${addedCount} added, ~${changedCount} updated, -${removedCount} removed`);
+    shows.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'zh'));
+  }
+  return { db: shows, changed };
+}
+
+module.exports = { scanTeleplays, incrementalScanTeleplays, buildTeleplaySignature };

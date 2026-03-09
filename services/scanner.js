@@ -142,7 +142,10 @@ async function scanMovies(movieDir) {
 
     try {
       const movie = await scanMovieFolder(folderPath, folderName);
-      if (movie) movies.push(movie);
+      if (movie) {
+        movie._folderSignature = buildMovieFolderSignature(folderPath);
+        movies.push(movie);
+      }
     } catch (err) {
       console.error(`Error scanning "${folderName}": ${err.message}`);
     }
@@ -150,6 +153,96 @@ async function scanMovies(movieDir) {
 
   movies.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'zh'));
   return movies;
+}
+
+// ── Per-folder signature for incremental scanning ────────────────────────────
+
+function buildMovieFolderSignature(folderPath) {
+  try {
+    const files = fs.readdirSync(folderPath).sort((a, b) => a.localeCompare(b, 'zh'));
+    const keyFiles = files.filter(f => {
+      const ext = path.extname(f).toLowerCase();
+      return VIDEO_EXTENSIONS.has(ext) || ext === '.nfo' || SUBTITLE_EXTENSIONS.has(ext) || !!detectImageType(f);
+    });
+    const fileMeta = keyFiles.map(file => {
+      try {
+        const stat = fs.statSync(path.join(folderPath, file));
+        return `${file}:${Math.floor(stat.mtimeMs)}:${stat.size}`;
+      } catch {
+        return `${file}:0:0`;
+      }
+    });
+    return crypto.createHash('sha1').update(fileMeta.join(',')).digest('hex');
+  } catch {
+    return '';
+  }
+}
+
+// ── Incremental movie scan (only rescan changed/new folders) ─────────────────
+
+async function incrementalScanMovies(movieDir, existingDb) {
+  const existingMap = new Map();
+  for (const movie of existingDb) {
+    existingMap.set(movie.folderName, movie);
+  }
+
+  let entries;
+  try {
+    entries = fs.readdirSync(movieDir, { withFileTypes: true });
+  } catch (err) {
+    console.error(`Failed to read movie directory: ${err.message}`);
+    return { db: existingDb, changed: false };
+  }
+
+  const currentFolders = new Set();
+  const movies = [];
+  let addedCount = 0, changedCount = 0;
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+
+    const folderName = entry.name;
+    currentFolders.add(folderName);
+    const folderPath = path.join(movieDir, folderName);
+    const newSig = buildMovieFolderSignature(folderPath);
+    const existing = existingMap.get(folderName);
+
+    if (existing && existing._folderSignature === newSig) {
+      movies.push(existing);
+    } else {
+      try {
+        const movie = await scanMovieFolder(folderPath, folderName);
+        if (movie) {
+          movie._folderSignature = newSig;
+          movies.push(movie);
+          if (existing) {
+            changedCount++;
+            console.log(`  Updated movie: ${folderName}`);
+          } else {
+            addedCount++;
+            console.log(`  Added movie: ${folderName}`);
+          }
+        }
+      } catch (err) {
+        console.error(`Error scanning "${folderName}": ${err.message}`);
+      }
+    }
+  }
+
+  let removedCount = 0;
+  for (const [folderName] of existingMap) {
+    if (!currentFolders.has(folderName)) {
+      removedCount++;
+      console.log(`  Removed movie: ${folderName}`);
+    }
+  }
+
+  const changed = addedCount > 0 || changedCount > 0 || removedCount > 0;
+  if (changed) {
+    console.log(`Incremental movie scan: +${addedCount} added, ~${changedCount} updated, -${removedCount} removed`);
+    movies.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'zh'));
+  }
+  return { db: movies, changed };
 }
 
 async function scanMovieFolder(folderPath, folderName) {
@@ -275,4 +368,4 @@ async function scanMovieFolder(folderPath, folderName) {
   };
 }
 
-module.exports = { scanMovies, buildSourceSignature };
+module.exports = { scanMovies, incrementalScanMovies, buildSourceSignature };
