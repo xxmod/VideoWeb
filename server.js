@@ -25,7 +25,7 @@ const { validateToken } = require('./services/userService');
 function authRequired(req, res, next) {
   // Allow unauthenticated access during initial setup (no users yet)
   if (!hasAnyUser()) return next();
-  const token = req.headers['x-token'];
+  const token = req.headers['x-token'] || req.query.token;
   if (!token) return res.status(401).json({ error: '未登录' });
   const session = validateToken(token);
   if (!session) return res.status(401).json({ error: '登录已过期' });

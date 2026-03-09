@@ -58,30 +58,35 @@ async function apiPost(path, body) {
 
 function imgUrl(id, type, original) {
   const base = `${API_BASE}/movies/${id}/image/${type}`;
-  return original ? `${base}?original=1` : base;
+  return withAuthToken(original ? `${base}?original=1` : base);
 }
 function tpImgUrl(id, type, original) {
   const base = `${API_BASE}/teleplays/${id}/image/${type}`;
-  return original ? `${base}?original=1` : base;
+  return withAuthToken(original ? `${base}?original=1` : base);
 }
 function tpSeasonPosterUrl(id, snum, original) {
   const base = `${API_BASE}/teleplays/${id}/season/${snum}/poster`;
-  return original ? `${base}?original=1` : base;
+  return withAuthToken(original ? `${base}?original=1` : base);
 }
 function tpEpThumbUrl(id, snum, eid) {
-  return `${API_BASE}/teleplays/${id}/season/${snum}/episode/${eid}/thumb`;
+  return withAuthToken(`${API_BASE}/teleplays/${id}/season/${snum}/episode/${eid}/thumb`);
 }
 function tpStreamUrl(id, snum, eid) {
-  return `${API_BASE}/teleplays/${id}/season/${snum}/episode/${eid}/stream`;
+  return withAuthToken(`${API_BASE}/teleplays/${id}/season/${snum}/episode/${eid}/stream`);
 }
 function tpSubtitleUrl(id, snum, eid, f) {
-  return `${API_BASE}/teleplays/${id}/season/${snum}/episode/${eid}/subtitle/${encodeURIComponent(f)}`;
+  return withAuthToken(`${API_BASE}/teleplays/${id}/season/${snum}/episode/${eid}/subtitle/${encodeURIComponent(f)}`);
 }
-function streamUrl(id)     { return `${API_BASE}/movies/${id}/stream`; }
-function subtitleUrl(id,f) { return `${API_BASE}/movies/${id}/subtitle/${encodeURIComponent(f)}`; }
-function embeddedSubUrl(id, idx) { return `${API_BASE}/movies/${id}/embedded-subtitle/${idx}`; }
+function streamUrl(id)     { return withAuthToken(`${API_BASE}/movies/${id}/stream`); }
+function subtitleUrl(id,f) { return withAuthToken(`${API_BASE}/movies/${id}/subtitle/${encodeURIComponent(f)}`); }
+function embeddedSubUrl(id, idx) { return withAuthToken(`${API_BASE}/movies/${id}/embedded-subtitle/${idx}`); }
 function tpEmbeddedSubUrl(id, snum, eid, idx) {
-  return `${API_BASE}/teleplays/${id}/season/${snum}/episode/${eid}/embedded-subtitle/${idx}`;
+  return withAuthToken(`${API_BASE}/teleplays/${id}/season/${snum}/episode/${eid}/embedded-subtitle/${idx}`);
+}
+
+function withAuthToken(url) {
+  if (!authToken) return url;
+  return url + (url.includes('?') ? '&' : '?') + `token=${encodeURIComponent(authToken)}`;
 }
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
@@ -790,7 +795,7 @@ $btnRescan.addEventListener('click', async () => {
   $btnRescan.disabled = true;
   $btnRescan.textContent = '…';
   try {
-    await fetch(`${API_BASE}/rescan`, { method: 'POST' });
+    await api('/rescan', { method: 'POST' });
     await loadMovies();
   } catch (err) {
     alert('重新扫描失败: ' + err.message);
@@ -949,9 +954,12 @@ $setupForm.addEventListener('submit', async (e) => {
       setAuth(adminRes.token, { username: adminRes.username, isAdmin: true });
     }
 
+    const settingsHeaders = { 'Content-Type': 'application/json' };
+    if (authToken) settingsHeaders['x-token'] = authToken;
+
     const res = await fetch(`${API_BASE}/settings`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: settingsHeaders,
       body: JSON.stringify({ movieDir, teleplayDir, port: parseInt(port) || undefined }),
     });
     const data = await res.json();
