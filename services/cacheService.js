@@ -16,6 +16,8 @@ function loadCache(filename) {
   }
 }
 
+let _saveCacheQueues = {};
+
 function saveCache(signature, movieDir, movies, filename) {
   const file = filename ? path.join(__dirname, '..', filename) : CACHE_FILE;
   const payload = {
@@ -24,9 +26,12 @@ function saveCache(signature, movieDir, movies, filename) {
     updatedAt: new Date().toISOString(),
     movies,
   };
-  fs.writeFile(file, JSON.stringify(payload), 'utf-8', (err) => {
-    if (err) console.error('Failed to save cache:', err.message);
-  });
+  const data = JSON.stringify(payload);
+  const key = file;
+  if (!_saveCacheQueues[key]) _saveCacheQueues[key] = Promise.resolve();
+  _saveCacheQueues[key] = _saveCacheQueues[key].then(() =>
+    fs.promises.writeFile(file, data, 'utf-8')
+  ).catch(err => console.error('Failed to save cache:', err.message));
 }
 
 module.exports = { loadCache, saveCache };

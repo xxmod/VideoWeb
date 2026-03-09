@@ -70,11 +70,14 @@ function loadUsers() {
   return _usersCache;
 }
 
+let _saveUsersQueue = Promise.resolve();
+
 function saveUsers(users) {
   _usersCache = users;
-  fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2), 'utf-8', (err) => {
-    if (err) console.error('Failed to save users:', err.message);
-  });
+  const data = JSON.stringify(users, null, 2);
+  _saveUsersQueue = _saveUsersQueue.then(() =>
+    fs.promises.writeFile(USERS_FILE, data, 'utf-8')
+  ).catch(err => console.error('Failed to save users:', err.message));
 }
 
 function getUser(username) {

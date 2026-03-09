@@ -194,12 +194,15 @@ function extractRawSubtitle(videoPath, subtitleIndex) {
 // ── Check if ffmpeg is available ─────────────────────────────────────────────
 
 let _ffmpegAvailable = null;
+let _ffmpegCheckPromise = null;
 
 function checkFfmpeg() {
   if (_ffmpegAvailable !== null) return Promise.resolve(_ffmpegAvailable);
-  return new Promise((resolve) => {
+  if (_ffmpegCheckPromise) return _ffmpegCheckPromise;
+  _ffmpegCheckPromise = new Promise((resolve) => {
     execFile(ffmpegPath, ['-version'], { timeout: 5000 }, (err) => {
       _ffmpegAvailable = !err;
+      _ffmpegCheckPromise = null;
       if (!_ffmpegAvailable) {
         console.warn('ffmpeg 不可用，内嵌字幕功能已禁用');
       }

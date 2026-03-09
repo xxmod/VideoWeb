@@ -20,6 +20,9 @@ const THUMB_WIDTH = {
 const DEFAULT_WIDTH = 400;
 const JPEG_QUALITY = 80;
 
+// In-flight thumbnail generation map to avoid duplicate work
+const _thumbInFlight = new Map();
+
 // Ensure cache directory exists
 function ensureCacheDir() {
   if (!fs.existsSync(CACHE_DIR)) {
@@ -50,19 +53,28 @@ async function getThumbnail(sourcePath, imageType) {
   // Already cached – return immediately
   if (fs.existsSync(cachedFile)) return cachedFile;
 
+  // If already generating this thumbnail, wait for the in-flight promise
+  if (_thumbInFlight.has(hash)) {
+    return _thumbInFlight.get(hash);
+  }
+
   // Generate thumbnail
   const width = THUMB_WIDTH[imageType] || DEFAULT_WIDTH;
-  try {
-    await sharp(sourcePath)
-      .resize({ width, withoutEnlargement: true })
-      .jpeg({ quality: JPEG_QUALITY, mozjpeg: true })
-      .toFile(cachedFile);
-    return cachedFile;
-  } catch (err) {
-    // If sharp fails (corrupt image, unsupported format), fall back to original
-    console.error(`Thumbnail generation failed for ${sourcePath}: ${err.message}`);
-    return null;
-  }
+  const promise = sharp(sourcePath)
+    .resize({ width, withoutEnlargement: true })
+    .jpeg({ quality: JPEG_QUALITY, mozjpeg: true })
+    .toFile(cachedFile)
+    .then(() => cachedFile)
+    .catch(err => {
+      console.error(`Thumbnail generation failed for ${sourcePath}: ${err.message}`);
+      return null;
+    })
+    .finally(() => {
+      _thumbInFlight.delete(hash);
+    });
+
+  _thumbInFlight.set(hash, promise);
+  return promise;
 }
 
 // Remove all cached files (useful on full rescan or manual clear)

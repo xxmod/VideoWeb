@@ -58,6 +58,9 @@ app.post('/api/settings', adminRequired, async (req, res) => {
   if (!movieDir && !teleplayDir) {
     return res.status(400).json({ error: '请提供至少一个媒体文件夹路径' });
   }
+  if (isScanning) {
+    return res.status(409).json({ error: '正在扫描中，请稍后再试' });
+  }
 
   if (movieDir && !fs.existsSync(movieDir)) {
     return res.status(400).json({ error: '电影文件夹路径不存在' });
@@ -76,6 +79,7 @@ app.post('/api/settings', adminRequired, async (req, res) => {
   config.teleplayDir = newCfg.teleplayDir;
   config.port = newCfg.port;
 
+  isScanning = true;
   try {
     let movieCount = 0, showCount = 0;
 
@@ -101,6 +105,8 @@ app.post('/api/settings', adminRequired, async (req, res) => {
     res.json({ movieCount, showCount, movieDir: config.movieDir, teleplayDir: config.teleplayDir, port: config.port });
   } catch (err) {
     res.status(500).json({ error: '扫描失败: ' + err.message });
+  } finally {
+    isScanning = false;
   }
 });
 
@@ -111,6 +117,10 @@ app.use('/api/movies', authRequired, movieRoutes);
 app.use('/api/teleplays', authRequired, teleplayRoutes);
 
 app.post('/api/rescan', adminRequired, async (req, res) => {
+  if (isScanning) {
+    return res.status(409).json({ error: '正在扫描中，请稍后再试' });
+  }
+  isScanning = true;
   try {
     let movieCount = 0, showCount = 0;
 
@@ -139,6 +149,8 @@ app.post('/api/rescan', adminRequired, async (req, res) => {
   } catch (err) {
     console.error('Rescan failed:', err.message);
     res.status(500).json({ error: '重新扫描失败: ' + err.message });
+  } finally {
+    isScanning = false;
   }
 });
 
