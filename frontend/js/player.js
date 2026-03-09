@@ -11,6 +11,7 @@ let currentEpisodeInfo = null; // { showId, seasonNum, episodeId }
 let progressTimer = null;
 let jassubRenderer = null;   // JASSUB instance for ASS subtitle rendering
 let currentAllSubs = [];     // current subtitle list with format info
+let subtitleAbortCtrl = null; // AbortController for pending subtitle fetch
 
 // ── Open player ──────────────────────────────────────────────────────────────
 
@@ -63,8 +64,9 @@ async function openPlayer(id) {
     });
   });
 
-  // Add subtitle tracks
-  allSubs.forEach((sub) => {
+  // Add subtitle tracks (only for external subtitles; embedded ones are loaded on demand)
+  allSubs.forEach((sub, i) => {
+    if (sub.type === 'embedded') return; // skip: fetched on demand to avoid concurrent ffmpeg
     const track = document.createElement('track');
     track.kind = 'subtitles';
     track.label = sub.label;
@@ -149,6 +151,12 @@ function buildSubtitleSelector(subs) {
 // ── Subtitle switching (ASS via JASSUB, others via native track) ─────────────
 
 function switchSubtitle(idx) {
+  // Abort any pending subtitle fetch
+  if (subtitleAbortCtrl) {
+    subtitleAbortCtrl.abort();
+    subtitleAbortCtrl = null;
+  }
+
   // Disable all native tracks
   const tracks = $video.textTracks;
   for (let i = 0; i < tracks.length; i++) {
@@ -162,6 +170,13 @@ function switchSubtitle(idx) {
 
   const sub = currentAllSubs[idx];
 
+  // Count how many external (non-embedded) subs come before this index
+  // to map to the correct native <track> index
+  let trackIdx = 0;
+  for (let i = 0; i < idx; i++) {
+    if (currentAllSubs[i].type !== 'embedded') trackIdx++;
+  }
+
   if (sub.isAss && typeof JASSUB !== 'undefined') {
     // Use JASSUB for ASS/SSA subtitles with full styling
     const rawSrc = sub.src + (sub.src.includes('?') ? '&' : '?') + 'raw=1';
@@ -174,13 +189,53 @@ function switchSubtitle(idx) {
       });
     } catch (e) {
       console.warn('JASSUB init failed, falling back to VTT:', e);
-      // Fallback to native VTT track
-      if (tracks[idx]) tracks[idx].mode = 'showing';
+      if (sub.type !== 'embedded' && tracks[trackIdx]) {
+        tracks[trackIdx].mode = 'showing';
+      } else {
+        loadEmbeddedSubOnDemand(sub, idx);
+      }
     }
+  } else if (sub.type === 'embedded') {
+    // Embedded non-ASS subtitle: fetch and create track on demand
+    loadEmbeddedSubOnDemand(sub, idx);
   } else {
-    // Use native track for non-ASS subtitles
-    if (tracks[idx]) tracks[idx].mode = 'showing';
+    // External non-ASS: use native track directly
+    if (tracks[trackIdx]) tracks[trackIdx].mode = 'showing';
   }
+}
+
+// ── Load embedded subtitle on demand (avoid pre-fetching all) ────────────────
+
+function loadEmbeddedSubOnDemand(sub, subIdx) {
+  subtitleAbortCtrl = new AbortController();
+  const signal = subtitleAbortCtrl.signal;
+
+  fetch(sub.src, { signal })
+    .then(resp => {
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      return resp.text();
+    })
+    .then(vttContent => {
+      if (signal.aborted) return;
+      // Create a blob URL and add as track
+      const blob = new Blob([vttContent], { type: 'text/vtt' });
+      const blobUrl = URL.createObjectURL(blob);
+      const track = document.createElement('track');
+      track.kind = 'subtitles';
+      track.label = sub.label;
+      track.srclang = langCodeToISO(sub.langCode);
+      track.src = blobUrl;
+      track.default = true;
+      $video.appendChild(track);
+      // Enable this newly added track
+      const tracks = $video.textTracks;
+      const newTrack = tracks[tracks.length - 1];
+      if (newTrack) newTrack.mode = 'showing';
+    })
+    .catch(err => {
+      if (err.name === 'AbortError') return;
+      console.error('Failed to load embedded subtitle:', err.message);
+    });
 }
 
 function destroyJassub() {
@@ -197,6 +252,11 @@ function stopPlayer() {
   clearInterval(progressTimer);
   progressTimer = null;
   $video.removeEventListener('pause', saveProgress);
+  // Abort any pending subtitle fetch
+  if (subtitleAbortCtrl) {
+    subtitleAbortCtrl.abort();
+    subtitleAbortCtrl = null;
+  }
   destroyJassub();
   currentAllSubs = [];
   $video.pause();
@@ -314,8 +374,9 @@ async function openEpisodePlayer(showId, seasonNum, episodeId) {
     });
   });
 
-  // Add subtitle tracks
+  // Add subtitle tracks (only for external subtitles; embedded ones are loaded on demand)
   allSubs.forEach((sub) => {
+    if (sub.type === 'embedded') return; // skip: fetched on demand to avoid concurrent ffmpeg
     const track = document.createElement('track');
     track.kind = 'subtitles';
     track.label = sub.label;

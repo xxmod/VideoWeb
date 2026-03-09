@@ -209,18 +209,27 @@ router.get('/:id/embedded-subtitle/:index', async (req, res) => {
     return res.status(404).json({ error: 'Video file not found' });
   }
 
+  let extraction;
+  const killOnClose = () => { if (extraction && extraction.kill) extraction.kill(); };
+  req.on('close', killOnClose);
+
   try {
     // Extract as native format (ASS) when ?raw=1
     if (req.query.raw === '1' && (sub.codec === 'ass' || sub.codec === 'ssa')) {
-      const raw = await extractRawSubtitle(videoPath, idx);
-      res.type('text/plain; charset=utf-8').send(raw);
+      extraction = extractRawSubtitle(videoPath, idx);
+      const raw = await extraction;
+      if (!res.writableEnded) res.type('text/plain; charset=utf-8').send(raw);
       return;
     }
-    const vtt = await extractSubtitle(videoPath, idx);
-    res.type('text/vtt; charset=utf-8').send(vtt);
+    extraction = extractSubtitle(videoPath, idx);
+    const vtt = await extraction;
+    if (!res.writableEnded) res.type('text/vtt; charset=utf-8').send(vtt);
   } catch (err) {
+    if (err.message === '字幕提取已取消') return;
     console.error(`Embedded subtitle extraction error: ${err.message}`);
-    res.status(500).json({ error: '内嵌字幕提取失败' });
+    if (!res.writableEnded) res.status(500).json({ error: '内嵌字幕提取失败' });
+  } finally {
+    req.removeListener('close', killOnClose);
   }
 });
 

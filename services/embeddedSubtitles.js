@@ -26,6 +26,11 @@ const LANGUAGE_MAP = {
   und: '未知语言',
 };
 
+// ── Active extraction tracking ───────────────────────────────────────────────
+
+const MAX_CONCURRENT_EXTRACTIONS = 2;
+let activeExtractions = 0;
+
 // ── Probe embedded subtitle streams ──────────────────────────────────────────
 
 function probeSubtitles(videoPath) {
@@ -101,7 +106,14 @@ function parseStreams(output) {
 // ── Extract embedded subtitle to WebVTT ──────────────────────────────────────
 
 function extractSubtitle(videoPath, subtitleIndex) {
-  return new Promise((resolve, reject) => {
+  if (activeExtractions >= MAX_CONCURRENT_EXTRACTIONS) {
+    return Promise.reject(new Error('字幕提取繁忙，请稍后重试'));
+  }
+
+  activeExtractions++;
+  let childProc;
+
+  const promise = new Promise((resolve, reject) => {
     const args = [
       '-i', videoPath,
       '-map', `0:s:${subtitleIndex}`,
@@ -110,22 +122,42 @@ function extractSubtitle(videoPath, subtitleIndex) {
       'pipe:1',
     ];
 
-    const proc = execFile(ffmpegPath, args, {
+    childProc = execFile(ffmpegPath, args, {
       maxBuffer: 10 * 1024 * 1024, // 10MB
-      timeout: 30000,
+      timeout: 60000,
       encoding: 'utf-8',
     }, (err, stdout) => {
-      if (err) return reject(new Error(`提取字幕失败: ${err.message}`));
+      activeExtractions = Math.max(0, activeExtractions - 1);
+      if (err) {
+        if (err.killed || err.signal) return reject(new Error('字幕提取已取消'));
+        return reject(new Error(`提取字幕失败: ${err.message}`));
+      }
       if (!stdout || stdout.trim().length === 0) return reject(new Error('字幕内容为空'));
       resolve(stdout);
     });
   });
+
+  // Attach kill method so callers can abort
+  promise.kill = () => {
+    if (childProc && !childProc.killed) {
+      childProc.kill('SIGKILL');
+    }
+  };
+
+  return promise;
 }
 
 // ── Extract subtitle as raw ASS/SSA (native format) ─────────────────────────
 
 function extractRawSubtitle(videoPath, subtitleIndex) {
-  return new Promise((resolve, reject) => {
+  if (activeExtractions >= MAX_CONCURRENT_EXTRACTIONS) {
+    return Promise.reject(new Error('字幕提取繁忙，请稍后重试'));
+  }
+
+  activeExtractions++;
+  let childProc;
+
+  const promise = new Promise((resolve, reject) => {
     const args = [
       '-i', videoPath,
       '-map', `0:s:${subtitleIndex}`,
@@ -135,16 +167,28 @@ function extractRawSubtitle(videoPath, subtitleIndex) {
       'pipe:1',
     ];
 
-    execFile(ffmpegPath, args, {
+    childProc = execFile(ffmpegPath, args, {
       maxBuffer: 10 * 1024 * 1024,
-      timeout: 30000,
+      timeout: 60000,
       encoding: 'utf-8',
     }, (err, stdout) => {
-      if (err) return reject(new Error(`提取字幕失败: ${err.message}`));
+      activeExtractions = Math.max(0, activeExtractions - 1);
+      if (err) {
+        if (err.killed || err.signal) return reject(new Error('字幕提取已取消'));
+        return reject(new Error(`提取字幕失败: ${err.message}`));
+      }
       if (!stdout || stdout.trim().length === 0) return reject(new Error('字幕内容为空'));
       resolve(stdout);
     });
   });
+
+  promise.kill = () => {
+    if (childProc && !childProc.killed) {
+      childProc.kill('SIGKILL');
+    }
+  };
+
+  return promise;
 }
 
 // ── Check if ffmpeg is available ─────────────────────────────────────────────
